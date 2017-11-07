@@ -6,7 +6,7 @@ This is an initial working program started in 2009, a newer version called Pereg
 ## Getting Started
 
 To use Haystack
-* create a db schema (scheama/peregrin.mwb)
+* create a db schema (schema/peregrin.mwb)
 * Each Module can be run as a standalone instance, see self runner code in wach module
 
 ### Prerequisites
