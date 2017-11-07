@@ -12,6 +12,11 @@ To use Haystack
 ### Prerequisites
 
 Mariadb or MySQL installed and a database called Peregrin setup
+Imstall the following modules:
+* pip install configparser
+* pip install mysqlclient
+
+_ some modules use other libraries, please review includes imports in each module _
 
 ## Authors
 
