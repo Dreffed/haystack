@@ -6,17 +6,16 @@
 #  Copyright 2013 David Gloyn-Cox <david@leviathan>
 #
 import sys
-import MySQLdb as mdb
+import pymysql as mdb
 import datetime
 
-""" hello """
 class PeregrinDB:
     """ load up the database, and the engines, then check for events in the queue
         if any detected then fire the engines as appropriate.
     """
 
     def __init__(self):
-        """
+        """ initializes the class
         """
         self._con = None
         self._cursor = None
@@ -24,10 +23,10 @@ class PeregrinDB:
         self._title = 'PeregrinDB'
         self._version = '1.0'
         self._descr = 'Peregrin Database Engine'
-        self._engineId = -1
+        self._engine_id = -1
 
     def __del__(self):
-        """
+        """ removes the connect to the database if connected
         """
         if self._con:
             self._con.close()
@@ -38,36 +37,39 @@ class PeregrinDB:
         return (self._title, self._version, self._descr)
 
     def connect_db(self, config):
-        """ Connect to the database
+        """ Connect to the database, reads from the pass ed
+        configuration
         """
         fname = "_connection_db"
         try:
-            self._con = mdb.connect(config.get('Database', 'Server'),
-                config.get('Database', 'User'),
-                config.get('Database', 'Password').decode('base64'),
-                config.get('Database', 'Schema'));
+            server_name = config.get('Database', 'Server')
+            user_name = config.get('Database', 'User')
+            password=config.get('Database', 'Password')
+            db_name=config.get('Database', 'Schema')
+            
+            self._con = mdb.connect(host=server_name,user=user_name,password=password,db=db_name,charset='utf8mb4',cursorclass=mdb.cursors.DictCursor)
 
             self._cursor = self._con.cursor()
-
-            self._engineId = self.addEngine(self._title, self._version, self._descr)
+            self._engine_id = self.addEngine(self._title, self._version, self._descr)            
             self._con.commit()
 
         except mdb.Error as e:
             print("Error %d: %s" % (e.args[0],e.args[1]))
-            sys.exit(1)
+            raise
 
         except:
             print("\tUnexpected error in %s:\t%s" % (fname, sys.exc_info()[0]))
-            sys.exit(1)
+            raise
 
     def commit_db(self):
-        """
+        """ Calls commit on the database 
         """
         if self._con:
             self._con.commit()
 
     def close_db(self):
-        """
+        """ closes the connectioon to the db and
+        sets the obj to None
         """
         if self._con:
             self._con.close()
@@ -127,9 +129,10 @@ class PeregrinDB:
                 self._cursor.execute("INSERT INTO Config (configName, configValue) VALUES (%s, %s);",(configName, configValue))
 
             else:
-                oldValue = rows[0][0]
-                self.addStatus(engineId, actionId, 'CONFIG CHANGE:\t%s\t%s\t%s\t%s' % (engineId, configName, oldValue, configValue))
-                self._cursor.execute("UPDATE Config SET configValue = %s WHERE configName = %s;",(configValue, configName))
+                oldValue = rows[0]['configValue']
+                if (oldValue != configValue):
+                    self.addStatus(engineId, actionId, 'CONFIG CHANGE:\t%s\t%s\t%s\t%s' % (engineId, configName, oldValue, configValue))
+                    self._cursor.execute("UPDATE Config SET configValue = %s WHERE configName = %s;",(configValue, configName))
 
         except mdb.Error as e:
             print("\tError in %s(-, %s, %s):\t%s" % (fName, configName, configValue, e.args[0]))
@@ -141,8 +144,7 @@ class PeregrinDB:
             self._con.commit()
 
     def getConfig(self, configName):
-        """ This will add a status message into the system and commit it, allow the
-            other applications to peek into the other process statuses
+        """ 
         """
         fName = 'getConfig'
         try:
@@ -150,7 +152,8 @@ class PeregrinDB:
             rows = self._cursor.fetchall()
             configValue = 'n/a'
             if len(rows) > 0:
-                configValue = rows[0][0]
+                print(rows, len(rows))
+                configValue = rows[0]['configValue']
 
         except mdb.Error as e:
             print("\tError in %s(-, %s, %s):\t%s" % (fName, configName, configValue, e.args[0]))
@@ -162,6 +165,8 @@ class PeregrinDB:
             return configValue
 
     def addEngine(self, engineTitle, engineVersion, engineDescr):
+        """ 
+        """
         fName = 'addEngine'
         #print(fName, engineTitle, engineVersion,)
         rowId = 0
@@ -174,7 +179,7 @@ class PeregrinDB:
                 rowId = self._cursor.lastrowid
             else:
                 row = rows[0]
-                rowId = int(row[0])
+                rowId = int(row['EngineId'])
 
         except mdb.Error as e:
             print("\tError in %s(-, %s, %s):\t%s" % (fName, engineTitle, engineVersion, e.args[0]))
@@ -183,7 +188,6 @@ class PeregrinDB:
             print("\tUnexpected error in %s(-, %s, %s):\t%s" % (fName, engineTitle, engineVersion, sys.exc_info()[0]))
 
         finally:
-            #print('\t%s' % rowId)
             return rowId
 
     def getEngineDisabled(self, engineId):
@@ -283,7 +287,7 @@ class PeregrinDB:
             else:
                 #print('\tExist\t',)
                 row = rows[0]
-                rowId = int(row[0])
+                rowId = int(row['actionId'])
 
         except mdb.Error as e:
             print("\tError in %s(-, %s, %s, %s):\t%s" % (fName, actionName, e.args[0]))
@@ -310,7 +314,7 @@ class PeregrinDB:
                 rowId = self._cursor.lastrowid
             else:
                 row = rows[0]
-                rowId = int(row[0])
+                rowId = int(row['itemId'])
 
             # for each of these args, we need to add an action
             for each in args:
@@ -374,7 +378,7 @@ class PeregrinDB:
 
             if len(rows) > 0:
                 row = rows[0]
-                itemURI = row[0]
+                itemURI = row['itemURI']
 
         except mdb.Error as e:
             print("\tError in %s(-, %s):\t%s" % (fName, itemId, e.args[0]))
@@ -401,7 +405,7 @@ class PeregrinDB:
                 rowId = self._cursor.lastrowid
             else:
                 row = rows[0]
-                rowId = int(row[0])
+                rowId = int(row['LinkTypeId'])
 
         except mdb.Error as e:
             print("\tError in %s(-, %s):\t%s" % (fName, linkType, e.args[0]))
@@ -433,7 +437,7 @@ class PeregrinDB:
             else:
                 #print('\tExist\t',)
                 row = rows[0]
-                rowId = int(row[0])
+                rowId = int(row['itemLinkId'])
 
         except mdb.Error as e:
             print("\tError in %s(-, %s, %s, %s, %s):\t%s" % (fName, engineId, itemIdLeft, itemIdRight, linkType, e.args[0]))
@@ -463,7 +467,7 @@ class PeregrinDB:
             #print(linkTypeId,)
 
             self._cursor.execute("""
-select id.ItemDataValue
+select id.ItemDataValue as ItemDataValue
 from ItemData id
 where id.ItemData = %s
 and id.itemDataValue not in (
@@ -483,7 +487,7 @@ order by id.ItemDataValue;""",(itemData, itemData, itemId_left, linkTypeId))
             if len(rows) > 0:
                 #print('\tNew\t',)
                 for row in rows:
-                    itemList.append(row[0])
+                    itemList.append(row['ItemDataValue'])
 
         except mdb.Error as e:
             print("\tError in %s(-, %s, %s, %s):\t%s" % (fName, itemId_left, itemData, linkType, e.args[0]))
@@ -514,7 +518,7 @@ order by id.ItemDataValue;""",(itemData, itemData, itemId_left, linkTypeId))
             else:
                 #print('\tExist\t',)
                 row = rows[0]
-                rowId = int(row[0])
+                rowId = int(row['ItemEventId'])
 
         except mdb.Error as e:
             print("\tError in %s(-, %s, %s, %s):\t%s" % (fName, engineId, actionId, itemId, e.args[0]))
@@ -544,7 +548,7 @@ order by id.ItemDataValue;""",(itemData, itemData, itemId_left, linkTypeId))
             else:
                 #print('\tExist\t',)
                 row = rows[0]
-                rowId = int(row[0])
+                rowId = int(row['ItemDataId'])
 
         except mdb.Error as e:
             print("\tError in %s(-, %s, %s, %s):\t%s" % (fName, itemId, itemData, itemDataSeq, e.args[0]))
@@ -568,7 +572,7 @@ order by id.ItemDataValue;""",(itemData, itemData, itemId_left, linkTypeId))
 
             if len(rows) > 0:
                 row = rows[0]
-                rowId = int(row[0])
+                rowId = int(row['ItemId'])
 
         except mdb.Error as e:
             print("\tError in %s(-, %s, %s):\t%s" % (fName, itemData, itemDataSeq, e.args[0]))
@@ -593,7 +597,7 @@ order by id.ItemDataValue;""",(itemData, itemData, itemId_left, linkTypeId))
             rows = self._cursor.fetchall()
 
             for row in rows:
-                itemDataValues.append(row[0])
+                itemDataValues.append(row['ItemDataValue'])
 
         except mdb.Error as e:
             print("\tError in %s(-, %s):\t%s" % (fName, itemData, e.args[0]))
@@ -617,7 +621,7 @@ order by id.ItemDataValue;""",(itemData, itemData, itemId_left, linkTypeId))
             rows = self._cursor.fetchall()
 
             for row in rows:
-                itemDataValues.append(row[0])
+                itemDataValues.append(row['itemDataValue'])
 
         except mdb.Error as e:
             print("\tError in %s(-, %s, %s):\t%s" % (fName, itemId, itemData, e.args[0]))
@@ -667,7 +671,7 @@ order by id.ItemDataValue;""",(itemData, itemData, itemId_left, linkTypeId))
             
             if findOthers:
                 self._cursor.execute("""
-                    SELECT i.ItemID, ItemURI
+                    SELECT i.ItemID AS ItemID, ItemURI
                         FROM Items i 
                             INNER JOIN ItemEvents e 
                                 ON i.itemId = e.itemId
@@ -688,7 +692,7 @@ order by id.ItemDataValue;""",(itemData, itemData, itemId_left, linkTypeId))
             else:
                 # next grab the unfinished records
                 self._cursor.execute("""
-                    SELECT i.ItemID, ItemURI
+                    SELECT i.ItemID AS ItemID, ItemURI
                         FROM Items i 
                             INNER JOIN ItemEvents e 
                                 ON i.itemId = e.itemId
@@ -700,7 +704,7 @@ order by id.ItemDataValue;""",(itemData, itemData, itemId_left, linkTypeId))
             rows = self._cursor.fetchall()
             
             for row in rows:
-                items.append((row[0], row[1]))
+                items.append((row['ItemID'], row['ItemURI']))
 
         except mdb.Error as e:
             print("\tError in %s(-, %s, %s):\t%s" % (fName, engineId, actionName, e.args[0]))
@@ -745,11 +749,11 @@ order by id.ItemDataValue;""",(itemData, itemData, itemId_left, linkTypeId))
 
         #print('%s>>\t%s\t' % (fName, engineId),)
         try:
-            self._cursor.execute("select e.engineId, a.actionId, a.actionName, ea.actionFunction, actionParams, count(*) as itemCount from Engines e inner join EngineActions ea on e.engineID = ea.engineID inner join Actions a on ea.actionID = a.actionID inner join ItemEvents ie on e.engineId = ie.engineId and a.actionId = ie.actionId where e.engineDisabled = 0 and ea.engineActionDisabled = 0 and ie.itemEventDate IS NULL and e.egnineId = %s group by e.engineId, a.actionId, a.actionName, ea.actionFunction, actionParams order by e.engineId, a.actionId, a.actionName, ea.actionFunction, actionParams limit 1;",[engineId])
+            self._cursor.execute("select e.engineId AS engineId, a.actionId, a.actionName, ea.actionFunction, actionParams, count(*) as itemCount from Engines e inner join EngineActions ea on e.engineID = ea.engineID inner join Actions a on ea.actionID = a.actionID inner join ItemEvents ie on e.engineId = ie.engineId and a.actionId = ie.actionId where e.engineDisabled = 0 and ea.engineActionDisabled = 0 and ie.itemEventDate IS NULL and e.egnineId = %s group by e.engineId, a.actionId, a.actionName, ea.actionFunction, actionParams order by e.engineId, a.actionId, a.actionName, ea.actionFunction, actionParams limit 1;",[engineId])
             rows = self._cursor.fetchall()
 
             for row in rows:
-                itemDataValues.append(row[0])
+                itemDataValues.append(row['engineId'])
 
         except mdb.Error as e:
             print("\tError in %s(-, %s):\t%s" % (fName, engineId, e.args[0]))
@@ -785,7 +789,7 @@ order by id.ItemDataValue;""",(itemData, itemData, itemId_left, linkTypeId))
                     if row[i] == None:  # is the column value NULL?
                           row[i] = "NULL"
 
-                #print(row)
+                print(row)
                 itemValues.update({'%s' % row[0]: (row[1], row[2], row[3])}) #, row[2], row[3])})
 
         except mdb.Error as e:
@@ -809,25 +813,29 @@ def main():
     modPath = os.path.dirname(__file__)
     corepath = os.path.split(modPath)[0]
     cfg_path = os.path.join(corepath, 'config', 'PeregrinDaemon.cfg')
+    print('Config Path: {0}'.format(cfg_path))
 
     # configuration details
     config = configparser.RawConfigParser()
     config.readfp(open(cfg_path))
-    print(config)
+    for each_section in config:
+        print('Section: {0}'.format(each_section))
+        for (each_key, each_val) in config.items(each_section):
+            print('\t{0} => {1}'.format(each_key, each_val))
 
     # database, details in the config file
     obj.connect_db(config)
 
     actionId = obj.addAction('Status')
-    obj.addStatus(obj._engineId, actionId, 'Hello this is a status message')
+    obj.addStatus(obj._engine_id, actionId, 'Hello this is a status message')
     status = obj.getStatus()
     for row in status:
         print(row)
 
     configName = 'test01'
-    obj.addConfig(obj._engineId, configName, 'value01')
+    obj.addConfig(obj._engine_id, configName, 'value01')
     print(obj.getConfig(configName))
-    obj.addConfig(obj._engineId, configName, 'value02')
+    obj.addConfig(obj._engine_id, configName, 'value02')
     print(obj.getConfig(configName))
 
     status = obj.getStatus()
@@ -838,14 +846,14 @@ def main():
     print(runQueue)
     if runQueue == 'n/a':
         print('Add runQueue')
-        obj.addConfig(obj._engineId, 'RunQueue', 1)
+        obj.addConfig(obj._engine_id, 'RunQueue', 1)
         runQueue = obj.getConfig('RunQueue')
 
     print('{}\t{}'.format(runQueue, (runQueue == '1')))
-    obj.addConfig(obj._engineId, 'RunQueue', 0)
+    obj.addConfig(obj._engine_id, 'RunQueue', 0)
     runQueue = obj.getConfig('RunQueue')
     print('{}\t{}'.format(runQueue, (runQueue == '1')))
-    obj.addConfig(obj._engineId, 'RunQueue', 1)
+    obj.addConfig(obj._engine_id, 'RunQueue', 1)
 
     print(obj.info())
 
