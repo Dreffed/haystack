@@ -1,5 +1,7 @@
 # Haystack Web Collector Suite  
 
+__This suite is undergoing conversion to Python 3+__ 
+
 Haystack is a tool used to harvest data from a variety of web sites and will push the data to an underlying database (Maria DB)
 This is an initial working program started in 2009, a newer version called Peregrin is under development.
 
