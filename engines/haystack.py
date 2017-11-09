@@ -35,11 +35,11 @@ class haystackFiles(object):
     """
 
     def __init__(self):
-        print 'Init'
+        print('Init')
         self._title = 'Haystack'
         self._version = '1.0'
         self._descr = '''Will scroll through the Haystack directory and process the files based on location and type.'''
-        self._engineId = -1
+        self._engine_id = -1
         self._state = 'Initialized'
         self._haystackPath = ''
         self._db = None
@@ -64,7 +64,7 @@ class haystackFiles(object):
             actionName, actionParams = action
             if actionParams == None:
                 func = getattr(self, funcName)
-                print 'Running %s.%s' % (self._title, funcName)
+                print('Running %s.%s' % (self._title, funcName))
                 func()
             else:
                 self.runAction(actionName, funcName)
@@ -73,25 +73,25 @@ class haystackFiles(object):
     def runAction(self, actionName, funcName):
         """ will run the action specifiec in the action name
         """
-        itemDataList = self._db.getItemDataList(self._engineId, actionName)
+        itemDataList = self._db.getItemDataList(self._engine_id, actionName)
         actionId = self._db.addAction(actionName)
         func = getattr(self, funcName)
-        print 'Running %s.%s' % (self._title, funcName)
 
         i = 0
         total = len(itemDataList)
         startTime = timeit.default_timer()
+        print('%s.%s => %s' % (self._title, funcName, total))
 
         for itemId, itemURI in itemDataList:
             i += 1
             func(itemURI)
-            self._db.updateItem(self._engineId, itemId, actionId, datetime.datetime.now())
+            self._db.updateItem(self._engine_id, itemId, actionId, datetime.datetime.now())
 
             if i % 1000 == 0:
                 interTime = timeit.default_timer()
                 step = ((interTime - startTime) / i)
                 eta = step * (total - i)
-                print 'Processing: %s / %s ETA: %ss at %s' % (i, total, eta, step)
+                print('Processing: %s / %s ETA: %ss at %s' % (i, total, eta, step))
 
                 if self._db != None:
                     self._db.commit_db()
@@ -104,10 +104,10 @@ class haystackFiles(object):
         return (self._title, self._version, self._descr)
 
     def getId(self):
-        return self._engineId
+        return self._engine_id
 
     def setId(self, Id):
-        self._engineId = Id
+        self._engine_id = Id
 
     def config(self, config):
         """ pass in the configuration file
@@ -140,6 +140,14 @@ class haystackFiles(object):
         actionId = self._db.addAction('WebCrawler')
         actionId_ex = self._db.addAction('extractor')
 
+        if not os.path.exists(self._haystackPath):
+            self._haystackPath = os.path.expanduser(self._haystackPath)
+
+        if not os.path.exists(self._haystackPath):
+            self._haystackPath = os.path.abspath(self._haystackPath)
+
+        print('\t{0} [{1}]'.format(fname, self._haystackPath))
+
         for (pathStr, dirs, files) in os.walk(self._haystackPath):
             head, tail = os.path.split(pathStr)
             for fileStr in files:
@@ -152,7 +160,7 @@ class haystackFiles(object):
                 fileName, fileExt = os.path.splitext(filePath)
 
                 # save the item to the database
-                itemId = self._db.addItem(self._engineId, "file://%s" % filePath, fileDT)
+                itemId = self._db.addItem(self._engine_id, "file://%s" % filePath, fileDT)
                 
                 # now check the data for this item...
                 itemList = self._db.getItemDataAll(itemId) 
@@ -169,9 +177,9 @@ class haystackFiles(object):
                     # get next item as this is already exists
                     continue
                 
-                # print the details
-                print fileDTCheck, fileDT
-                print '>>\t%s\t%s\t%s' % (fname, head, tail)
+                # print(the details)
+                print(fileDTCheck, fileDT)
+                print('>>\t%s\t%s\t%s' % (fname, head, tail))
             
                 # set the datetime and other details
                 self._db.addItemData(itemId, 'Haystack', tail, 0)
@@ -195,13 +203,13 @@ class haystackFiles(object):
 
                 if not m:
                     self.getContents(itemId, filePath, tail)
-                    self._db.updateItem(self._engineId, itemId, actionId_ex, datetime.datetime.now())
+                    self._db.updateItem(self._engine_id, itemId, actionId_ex, datetime.datetime.now())
 
                 else:
                     # we have a file extension...
                     if m.group('ext').startswith('.htm'):
                         # add this as an event to be processed by the html link reader...
-                        self._db.addItemEvent(self._engineId, actionId, itemId)
+                        self._db.addItemEvent(self._engine_id, actionId, itemId)
 
         if self._db:
             self._db.commit_db()
@@ -219,7 +227,7 @@ class haystackFiles(object):
         else:
             actionId = -1
 
-        print '\t\t[%s] %s\t(%s)' % (itemId, itemURI, actionId)
+        print('\t\t[%s] %s\t(%s)' % (itemId, itemURI, actionId))
             
         # dissect the file
         patURL = re.compile(r'URL=(?P<url>.*$)', re.IGNORECASE)
@@ -241,11 +249,11 @@ class haystackFiles(object):
 
             if m:
                 url =  m.group('url')
-                itemIdRight = self._db.addItem(self._engineId, url, datetime.datetime.now(), args)
-                self._db.addItemLink(self._engineId, itemId, itemIdRight, 'Contains')
+                itemIdRight = self._db.addItem(self._engine_id, url, datetime.datetime.now(), args)
+                self._db.addItemLink(self._engine_id, itemId, itemIdRight, 'Contains')
                 
                 # we have a URI, down we wnat to action it, use the tail value to set the action:
-                self._db.addItemEvent(self._engineId, actionId, itemIdRight)
+                self._db.addItemEvent(self._engine_id, actionId, itemIdRight)
 
             self._db.addItemData(itemId, 'Contents', line, idx)
 
@@ -253,12 +261,12 @@ class haystackFiles(object):
 def main():
     import imp
     import inspect
-    import ConfigParser
+    import configparser
 
     # the following is a hack to allow me to load mods and classes from a filepath
     modPath = os.path.dirname(__file__)
     corepath = os.path.split(modPath)[0]
-    filepath = os.path.join(corepath, 'PeregrinDB.py')
+    filepath = os.path.join(corepath, 'db', 'PeregrinDB.py')
     mod_name,file_ext = os.path.splitext(os.path.split(filepath)[-1])
     
     py_mod = imp.load_source(mod_name, filepath)
@@ -269,11 +277,11 @@ def main():
             db = cls[1]()
             break
 
-    print 'Running >> %s' % datetime.datetime.today()
+    print('Running >> %s' % datetime.datetime.today())
 
     # configuration details
-    cfg_path = os.path.join(corepath, 'PeregrinDaemon.cfg')
-    config = ConfigParser.RawConfigParser()
+    cfg_path = os.path.join(corepath, 'config', 'PeregrinDaemon.cfg')
+    config = configparser.RawConfigParser()
     config.readfp(open(cfg_path))
 
     # database, details in the config file
@@ -287,19 +295,19 @@ def main():
     obj.config(config)
 
     obj.acceptDB(db)
-    obj._engineId = obj._db.addEngine(obj._title, obj._version, obj._descr)
+    obj._engine_id = obj._db.addEngine(obj._title, obj._version, obj._descr)
 
     obj.start()
-    print 'Engine:\t%s (%s)\t[%s]' % (obj._title, obj._version, obj._engineId)
+    print('Engine:\t%s (%s)\t[%s]' % (obj._title, obj._version, obj._engine_id))
 
-    print obj.info()
-    print obj.actions()
+    print(obj.info())
+    print(obj.actions())
     obj.run()
 
     del obj
     
-    print 'Ending >> %s' % datetime.datetime.today()
-    print '================================================'
+    print('Ending >> %s' % datetime.datetime.today())
+    print('================================================')
     
     return 0
 
