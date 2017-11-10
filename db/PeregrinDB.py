@@ -530,7 +530,6 @@ order by id.ItemDataValue;""",(itemData, itemData, itemId_left, linkTypeId))
             #print(rowId)
             return rowId
 
-
     def addItemData(self, itemId, itemData, itemDataValue, itemDataSeq):
         """ Will add an a data tag and value for a particular item...
         """

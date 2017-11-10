@@ -22,7 +22,7 @@ class fileScanner(object):
     """
 
     def __init__(self):
-        print 'Init'
+        print('Init')
         self._title = 'FileScanner'
         self._version = '2.0'
         self._descr = 'File scanner for .'
@@ -48,19 +48,9 @@ class fileScanner(object):
         self._itemId = self._db.getItemData(self._title)
         if self._itemId <= 0:
             # missing value need to add it in...
-            itemURI = '/home'
+            itemURI = os.path.split(os.path.expanduser('~'))[0]
             self._itemId = self._db.addItem(self._engineId, itemURI, datetime.datetime.now())
             self._db.addItemData(self._itemId, self._title, itemURI, 0)
-
-            # also set up the default keywords...
-            self._db.addItemData(self._itemId, 'folderPaths', '/home/david', 0)
-            self._db.addItemData(self._itemId, 'folderPaths', '/run/media/david/cf3f062d-1c9c-439d-aeb7-d0432f669e92', 1)
-            self._db.addItemData(self._itemId, 'folderPaths', '/run/media/david/a707d25e-9ddf-46a4-a537-50f5dc49ac98', 2)
-            self._db.addItemData(self._itemId, 'folderPaths', '/home/laptop', 3)
-            self._db.addItemData(self._itemId, 'folderPaths', '/home/Pictures', 4)
-            self._db.addItemData(self._itemId, 'folderPaths', '/home/david_1', 5)
-            self._db.addItemData(self._itemId, 'folderPaths', '/run/media/david/3918fa86-d9e6-4355-8667-145b9856f0be/davidgc', 6)
-            self._db.addItemData(self._itemId, 'folderPaths', '/run/media/david/media', 7)
 
             self._db.commit_db()
 
@@ -69,6 +59,24 @@ class fileScanner(object):
 
         self._uri = itemURI
 
+        # add the current machine folder...
+        user_folder = os.path.expanduser('~')
+        i = 1
+        self.addItem(os.path.join(user_folder, 'Documents'), i)
+        i += 1
+        self.addItem(os.path.join(user_folder, 'Downloads'), i)
+        i += 1
+        self.addItem(os.path.join(user_folder, 'Pictures'), i)
+        i += 1
+        self.addItem(os.path.join(user_folder, 'Videos'), i)
+        i += 1
+        self.addItem(os.path.join(user_folder, 'Music'), i)
+
+    def addItem(self, value, i):
+        row_id = self._db.addItemData(self._itemId, self._title, value, i)
+        print('Path: {0} => {1}'.format(row_id, value))
+        self._db.commit_db()
+        
     def info(self):
         """ returns the objects information
         """
@@ -116,7 +124,7 @@ class fileScanner(object):
         for funcName, action in self._actions.items():
             actionName, actionParams = action
             if actionParams == None:
-                print 'Running %s.%s' % (self._title, funcName)
+                print('Running %s.%s' % (self._title, funcName))
                 func = getattr(self, funcName)
                 func()
             else:
@@ -129,7 +137,7 @@ class fileScanner(object):
         itemDataList = self._db.getItemList(self._engineId, actionName)
         actionId = self._db.addAction(actionName)
         func = getattr(self, funcName)
-        print 'Running %s.%s' % (self._title, funcName)
+        print('Running %s.%s' % (self._title, funcName))
 
         i = 0
         total = len(itemDataList)
@@ -144,7 +152,7 @@ class fileScanner(object):
                 interTime = timeit.default_timer()
                 step = ((interTime - startTime) / i)
                 eta = step * (total - i)
-                print 'Processing: %s / %s ETA: %ss at %s - %s' % (i, total, eta, step, itemURI)
+                print('Processing: %s / %s ETA: %ss at %s - %s' % (i, total, eta, step, itemURI))
 
                 if self._db != None:
                     self._db.commit_db()
@@ -170,7 +178,7 @@ class fileScanner(object):
         self._state = 'Running...'
 
         # get the keywords to use
-        folderPaths = self._db.getItemDataList(self._itemId, 'folderPaths')
+        folderPaths = self._db.getItemDataList(self._itemId, self._title)
         for uri in folderPaths:
             self.getItems(uri)
 
@@ -182,7 +190,7 @@ class fileScanner(object):
         fname = 'getChecksum'
         self._state = 'Running...'
 
-        #print '\t%s\t%s' % (fname, uri),
+        #print('\t%s\t%s' % (fname, uri),)
         # truncate the file://
         if uri[:5].lower() == 'file:':
             uri = uri[7:]
@@ -202,10 +210,10 @@ class fileScanner(object):
             itemId = self._db.addItem(self._engineId, uri, datetime.datetime.now())
             self._db.addItemData(itemId, 'MD5', md5Value, 0)
         except:
-            print "\t\tUnexpected error in %s(-, %s):\t%s" % (fname, uri, sys.exc_info()[0])
+            print("\t\tUnexpected error in %s(-, %s):\t%s" % (fname, uri, sys.exc_info()[0]))
             md5Value = '==error=='
 
-        #print '\t%s' % md5Value
+        #print('\t%s' % md5Value)
         self._state = 'Waiting...'
 
     def getItems(self, uri, actionId = -1):
@@ -219,13 +227,13 @@ class fileScanner(object):
 
         fileNames = []
         i = 0
-        totalSize = 0L
+        totalSize = 0
 
         if not os.path.exists(uri):
-            print '\tPath missing: %s' % uri
+            print('\tPath missing: %s' % uri)
             return
 
-        print '\t%s\t>> %s' % (fname, uri)
+        print('\t%s\t>> %s' % (fname, uri))
 
         items = dict()
 
@@ -236,7 +244,7 @@ class fileScanner(object):
             dirs[:] = [d for d in dirs if not d[0] == '.']
 
             head, tail = os.path.split(pathStr)
-            #print '\t%s\t%s' % (fname, pathStr)
+            #print('\t%s\t%s' % (fname, pathStr))
 
             fileDT = datetime.datetime.fromtimestamp(os.path.getmtime(pathStr))
             items.update({'folder://%s' % pathStr :(tail, fileDT, None, 'folder://%s' % pathStr)})
@@ -255,22 +263,22 @@ class fileScanner(object):
                     items.update({'file://%s' % item: (fileStr, fileDT, fileSize, 'folder://%s' % pathStr)})
 
                 except:
-                    print "\t\tUnexpected error in %s(-, %s):\t%s" % (fname, item, sys.exc_info()[0])
+                    print("\t\tUnexpected error in %s(-, %s):\t%s" % (fname, item, sys.exc_info()[0]))
 
         #found = len(items)
-        #print '\t%s\t%d\t%s' % (uri, found, totalSize)
+        #print('\t%s\t%d\t%s' % (uri, found, totalSize))
 
         itemId_root = self._db.addItem(self._engineId, "folder://%s" % uri, fileDT)
         self._db.addItemLink(self._engineId, self._itemId, itemId_root, 'Contains')
         if self._db:
             self._db.commit_db()
 
-        #print '\t{%s}\t[%s] %s' % (self._itemId, itemId_root, uri)
+        #print('\t{%s}\t[%s] %s' % (self._itemId, itemId_root, uri))
 
         # now to get the filetree
         items_db = dict()
         items_db = self._db.getItemTree(self._engineId, itemId_root)
-        #print items_db
+        #print(items_db)
 
         #for key in items_db:
         #    print'\t%s' % (key)
@@ -281,7 +289,7 @@ class fileScanner(object):
         deleted = len(items_old)
         count = 0
         saves = 0
-        print '\t[%s - %s (%s)]\t=\t%s' % (len(items), len(items_db), deleted, total)
+        print('\t[%s - %s (%s)]\t=\t%s' % (len(items), len(items_db), deleted, total))
 
         # add the new items
         folderName_old = 'folder://%s' % uri
@@ -291,14 +299,14 @@ class fileScanner(object):
         head, tail = os.path.split(uri)
         folderName_parent = 'folder://%s' % head
         itemId_parent = self._db.addItem(self._engineId, folderName_parent, fileDT)
-        #print '+++%s\t%s\t%s/%s' % (folderName_old, folderName_parent, itemId_folder, itemId_parent)
+        #print('+++%s\t%s\t%s/%s' % (folderName_old, folderName_parent, itemId_folder, itemId_parent))
 
         # create a dictionary of folder names to store the itemId and parent id
         folders = dict()
         folders[folderName_parent] = (itemId_parent, 0)
 
-        #print folders
-        print '\t%s\t%s New : %s / %s' % (fname, uri, total, len(items))
+        #print(folders)
+        print('\t%s\t%s New : %s / %s' % (fname, uri, total, len(items)))
 
         startTime = timeit.default_timer()
 
@@ -316,7 +324,7 @@ class fileScanner(object):
                     head, tail = os.path.split(pathStr)
                     folderName_parent = 'folder://%s' % head
                     itemId_parent = self._db.addItem(self._engineId, folderName_parent, fileDate)
-                    #print '>>>%s\t%s\t%s/%s' % (folderName_parent, folderName, itemId_parent, itemId_folder)
+                    #print('>>>%s\t%s\t%s/%s' % (folderName_parent, folderName, itemId_parent, itemId_folder))
                     folderName_old = folderName
 
                     if itemId_parent != itemId_folder:
@@ -328,7 +336,7 @@ class fileScanner(object):
 
             if itemId_folder != itemId:
                 self._db.addItemLink(self._engineId, itemId_folder, itemId, 'Contains')
-                #print '[%s>>%s] %s %s %s %s' % (itemId_folder, itemId, fileName, fileDate, fileSize, folderName)
+                #print('[%s>>%s] %s %s %s %s' % (itemId_folder, itemId, fileName, fileDate, fileSize, folderName))
 
                 # add the details
                 self._db.addItemData(itemId, 'FileName', fileName, 0)
@@ -345,7 +353,7 @@ class fileScanner(object):
                 d = datetime.datetime(1,1,1) + sec
                 ets = "%d:%d:%d:%d" % (d.day-1, d.hour, d.minute, d.second)
 
-                print 'Processing: %s / %s ETA: %s at %s >> %s - %s' % (count, total, ets, step, saves, itemURI )
+                print('Processing: %s / %s ETA: %s at %s >> %s - %s' % (count, total, ets, step, saves, itemURI ))
 
                 if self._db:
                     self._db.commit_db()
@@ -360,11 +368,12 @@ class fileScanner(object):
 def main():
     import imp
     import inspect
-    import ConfigParser
+    import configparser
 
     # the following is a hack to allow me to load mods and classes from a filepath
-    corepath = '/home/david/Dropbox/StackingTurtles/projects/peregrin/poc'
-    filepath = os.path.join(corepath, 'PeregrinDB.py')
+    modPath = os.path.dirname(__file__)
+    corepath = os.path.split(modPath)[0]
+    filepath = os.path.join(corepath, 'db', 'PeregrinDB.py')
     mod_name,file_ext = os.path.splitext(os.path.split(filepath)[-1])
 
     py_mod = imp.load_source(mod_name, filepath)
@@ -376,10 +385,10 @@ def main():
             break
 
     # configuration details
-    cfg_path = os.path.join(corepath, 'PeregrinDaemon.cfg')
-    config = ConfigParser.RawConfigParser()
+    cfg_path = os.path.join(corepath, 'config', 'PeregrinDaemon.cfg')
+    config = configparser.RawConfigParser()
     config.readfp(open(cfg_path))
-    print config
+    print(config)
 
     # database, details in the config file
     db.connect_db(config)
@@ -388,12 +397,12 @@ def main():
     obj = fileScanner()
     obj.acceptDB(db)
     obj._engineId = obj._db.addEngine(obj._title, obj._version, obj._descr)
-    print obj._engineId
+    print(obj._engineId)
 
     obj.start()
 
-    print obj.info()
-    print obj.actions()
+    print(obj.info())
+    print(obj.actions())
 
     obj.run()
     #obj.getItems('/home/david/Dropbox/haystack')

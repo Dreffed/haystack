@@ -42,11 +42,11 @@ class bcTechJob(object):
     """
 
     def __init__(self):
-        print 'Init'
+        print('Init')
         self._title = 'BC Technet'
         self._version = '2.0'
         self._descr = 'Job Search Processor for the BC Technology web site.'
-        self._engineId = -1
+        self._engine_id = -1
         self._state = 'Initialized'
         self._uri = ''
         self._items = 0
@@ -68,7 +68,7 @@ class bcTechJob(object):
         if self._itemId <= 0:
             # missing value need to add it in...
             itemURI = 'http://www.bctechnology.com/scripts/search_form.cfm'
-            self._itemId = self._db.addItem(self._engineId, itemURI, datetime.datetime.now())
+            self._itemId = self._db.addItem(self._engine_id, itemURI, datetime.datetime.now())
             self._db.addItemData(self._itemId, self._title, itemURI, 0)
 
             # also set up the default keywords...
@@ -101,10 +101,10 @@ class bcTechJob(object):
         return (self._title, self._version, self._descr)
 
     def getId(self):
-        return self._engineId
+        return self._engine_id
 
     def setId(self, Id):
-        self._engineId = Id
+        self._engine_id = Id
 
     def acceptDB(self, db):
         """ if this is declared the calling program will pass in the
@@ -140,7 +140,7 @@ class bcTechJob(object):
         for funcName, action in self._actions.items():
             actionName, actionParams = action
             if actionParams == None:
-                print 'Running %s.%s' % (self._title, funcName)
+                print('Running %s.%s' % (self._title, funcName))
                 func = getattr(self, funcName)
                 func()
             else:
@@ -150,10 +150,10 @@ class bcTechJob(object):
     def runAction(self, actionName, funcName):
         """ will run the action specifiec in the action name
         """
-        itemDataList = self._db.getItemList(self._engineId, actionName)
+        itemDataList = self._db.getItemList(self._engine_id, actionName)
         actionId = self._db.addAction(actionName)
         func = getattr(self, funcName)
-        print 'Running %s.%s' % (self._title, funcName)
+        print('Running %s.%s' % (self._title, funcName))
 
         i = 0
         total = len(itemDataList)
@@ -162,13 +162,13 @@ class bcTechJob(object):
         for itemId, itemURI in itemDataList:
             i += 1
             func(itemURI)
-            self._db.updateItem(self._engineId, itemId, actionId, datetime.datetime.now())
+            self._db.updateItem(self._engine_id, itemId, actionId, datetime.datetime.now())
 
             if i % 1000 == 0:
                 interTime = timeit.default_timer()
                 step = ((interTime - startTime) / i)
                 eta = step * (total - i)
-                print 'Processing: %s / %s ETA: %ss at %s' % (i, total, eta, step)
+                print('Processing: %s / %s ETA: %ss at %s' % (i, total, eta, step))
 
                 if self._db != None:
                     self._db.commit_db()
@@ -189,7 +189,7 @@ class bcTechJob(object):
         """ takes the provided URI and will
         """
         # check to see if any jobs need to be processed first...
-        print '\tFetching : %s\t%s' % (self._title, self._uri)
+        print('\tFetching : %s\t%s' % (self._title, self._uri))
         self._state = 'Running...'
 
         # get the keywords to use
@@ -197,12 +197,12 @@ class bcTechJob(object):
 
         # for each key word get the links
         for keyword in keywords:
-            print '\tRetrieve:\t%s' % keyword
+            print('\tRetrieve:\t%s' % keyword)
             self.get_page(self._uri, keyword)
 
         self._db.commit_db()
 
-        items = self._db.getItemList(self._engineId, 'extractor')
+        items = self._db.getItemList(self._engine_id, 'extractor')
         self._items = len(items)
         self._state == 'Waiting...'
 
@@ -223,13 +223,13 @@ class bcTechJob(object):
         try:
             self._state = 'Running...'                
             stage +=1
-            itemId = self._db.addItem(self._engineId, uri, datetime.datetime.now())
+            itemId = self._db.addItem(self._engine_id, uri, datetime.datetime.now())
             
-            #print '\t%s\t[%s] %s' % (fname, itemId, uri)
+            #print('\t%s\t[%s] %s' % (fname, itemId, uri))
             br = self.open_page(uri)
             if br.response() is None:
                 # exit
-                print '\tInvalid URI - %s' % (uri)
+                print('\tInvalid URI - %s' % (uri))
                 return
                 
             stage +=1
@@ -246,7 +246,7 @@ class bcTechJob(object):
             jobID = br.form['id']
             stage +=1
             
-            #print '\t%s {%s}\t%s [%s]' % (jobTitle, jobDate, companyName, companyId)
+            #print('\t%s {%s}\t%s [%s]' % (jobTitle, jobDate, companyName, companyId))
             self._db.addItemData(itemId, 'CompanyId', companyId, 0)
             self._db.addItemData(itemId, 'CompanyName', companyName, 0)
             self._db.addItemData(itemId, 'JobDate', jobDate, 0)
@@ -254,7 +254,7 @@ class bcTechJob(object):
             self._db.addItemData(itemId, 'JobID', jobID, 0)
             stage +=1
 
-            #print '\tJob Desc',
+            #print('\tJob Desc',)
             # now we need the description and requirements...
             html = br.response().read()
             pool = BeautifulSoup(html)
@@ -273,13 +273,13 @@ class bcTechJob(object):
                     if attr == 'alt' and value == 'Job Description':
                         jobDesc = ''.join(table.findAll(text=True))
 
-            #print jobDesc
+            #print(jobDesc)
             stage +=1
             self._db.addItemData(itemId, 'JobDescription', str(jobDesc), 0)
             stage +=1
 
         except:
-            print "\t\tUnexpected error in %s->%s (%s, %s):\t%s" % (fname, stage, itemId, uri, sys.exc_info()[0])
+            print("\t\tUnexpected error in %s->%s (%s, %s):\t%s" % (fname, stage, itemId, uri, sys.exc_info()[0]))
 
         self._state == 'Waiting...'
 
@@ -390,19 +390,19 @@ class bcTechJob(object):
 
                     jobURI = baseurl + link.url #'%s/scripts/show_job.cfm?id=%s' % (baseurl, jobId)
                     if self.addListing(jobId, jobTitle, jobURI):
-                        print '\t\t\t[%s] %s' % (jobId, jobTitle)
+                        print('\t\t\t[%s] %s' % (jobId, jobTitle))
                         new += 1
 
                     stage += 1
 
                 except NameError, e:
-                    print "\t\tError in %s(Loop:%s, Stage:%s, Job:%s)\t%s:" % (fname, count, stage, jobId, e.args[0])
+                    print("\t\tError in %s(Loop:%s, Stage:%s, Job:%s)\t%s:" % (fname, count, stage, jobId, e.args[0]))
 
                 except:
-                    print "\t\tUnexpected error in %s(Loop:%s, Stage:%s, Job:%s):\t%s" % (fname, count, stage, jobId, sys.exc_info()[0])
+                    print("\t\tUnexpected error in %s(Loop:%s, Stage:%s, Job:%s):\t%s" % (fname, count, stage, jobId, sys.exc_info()[0]))
 
             # go to the next page
-            print '\t\t>> %s/%s ' % (new, found)
+            print('\t\t>> %s/%s ' % (new, found))
 
             if len(nextLink) > 0:
                 br.follow_link(nextLink[0])
@@ -420,13 +420,13 @@ class bcTechJob(object):
                 listing -> itemId
                     itemId -> itemLinks
         """
-        #print '\t\t\t[%s] %s \n\t\t\t\t>>%s' % (jobId, jobTitle, jobURI)
+        #print('\t\t\t[%s] %s \n\t\t\t\t>>%s' % (jobId, jobTitle, jobURI))
 
         # add the item
-        itemId = self._db.addNewItem(self._engineId, jobURI, datetime.datetime.now(), ('extractor', 'ml'))
+        itemId = self._db.addNewItem(self._engine_id, jobURI, datetime.datetime.now(), ('extractor', 'ml'))
         if itemId > 0:
             # add in the item data...
-            self._db.addItemLink(self._engineId, self._itemId, itemId, 'contains')
+            self._db.addItemLink(self._engine_id, self._itemId, itemId, 'contains')
 
             # add in the link
             self._db.addItemData(itemId, 'JobId', jobId, 0)
@@ -440,12 +440,12 @@ class bcTechJob(object):
 def main():
     import imp
     import inspect
-    import ConfigParser
+    import configparser
 
     # the following is a hack to allow me to load mods and classes from a filepath
     modPath = os.path.dirname(__file__)
     corepath = os.path.split(modPath)[0]
-    filepath = os.path.join(corepath, 'PeregrinDB.py')
+    filepath = os.path.join(corepath, 'db', 'PeregrinDB.py')
     mod_name,file_ext = os.path.splitext(os.path.split(filepath)[-1])
 
     py_mod = imp.load_source(mod_name, filepath)
@@ -457,10 +457,10 @@ def main():
             break
 
     # configuration details
-    cfg_path = os.path.join(corepath, 'PeregrinDaemon.cfg')
+    cfg_path = os.path.join(corepath, 'config', 'PeregrinDaemon.cfg')
     config = ConfigParser.RawConfigParser()
     config.readfp(open(cfg_path))
-    print 'Running >> %s' % datetime.datetime.today()
+    print('Running >> %s' % datetime.datetime.today())
 
     # database, details in the config file
     db.connect_db(config)
@@ -468,10 +468,10 @@ def main():
     # create the object
     classes = inspect.getmembers(sys.modules[__name__], inspect.isclass)
     for clsObj in classes:
-        print '\t%s [%s]\t%s' % (clsObj[1].__name__, clsObj[1].__module__, __name__)
+        print('\t%s [%s]\t%s' % (clsObj[1].__name__, clsObj[1].__module__, __name__))
         if clsObj[1].__module__ == __name__:
             obj = clsObj[1]()
-            print '\t%s [%s]' % (obj.__class__.__name__, obj.__module__)
+            print('\t%s [%s]' % (obj.__class__.__name__, obj.__module__))
     
     #obj = bcTechJob()       
     if obj:
@@ -479,15 +479,15 @@ def main():
         #obj = bcTechJob() #classes[0][1]()
         obj.acceptDB(db)
     
-        obj._engineId = obj._db.addEngine(obj._title, obj._version, obj._descr)
+        obj._engine_id = obj._db.addEngine(obj._title, obj._version, obj._descr)
         obj._db.commit_db()
     
         obj.start()
     
-        print 'ItemId:\t%s\t[%s]' % (obj._itemId, obj._engineId)
+        print('ItemId:\t%s\t[%s]' % (obj._itemId, obj._engine_id))
     
-        print obj.info()
-        print obj.actions()
+        print(obj.info())
+        print(obj.actions())
     
         obj.run()
     
@@ -496,8 +496,8 @@ def main():
     del db
     del config
 
-    print 'Ending >> %s' % datetime.datetime.today()
-    print '================================================'
+    print('Ending >> %s' % datetime.datetime.today())
+    print('================================================')
 
     return 0
 

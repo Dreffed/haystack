@@ -34,16 +34,15 @@ from subprocess import Popen, PIPE
 
 import mechanize
 import cookielib
-import ConfigParser
 
 class fileDownloader(object):
 
     def __init__(self):
-        print 'Init'
+        print('Init')
         self._title = 'FileDownloader'
         self._version = '1.0'
         self._descr = '''Will download all link in the referenced page based on the type requested.'''
-        self._engineId = -1
+        self._engine_id = -1
         self._state = 'Initialized'
         self._downloadPath = ''
         self._youtube = ''
@@ -64,7 +63,7 @@ class fileDownloader(object):
             # missing value need to add it in...
             itemURI = 'fileDownloader.py'
 
-            self._itemId = self._db.addItem(self._engineId, itemURI, datetime.datetime.now())
+            self._itemId = self._db.addItem(self._engine_id, itemURI, datetime.datetime.now())
             self._db.addItemData(self._itemId, self._title, itemURI, 0)
 
             if self._db != None:
@@ -82,10 +81,10 @@ class fileDownloader(object):
         return (self._title, self._version, self._descr)
 
     def getId(self):
-        return self._engineId
+        return self._engine_id
 
     def setId(self, Id):
-        self._engineId = Id
+        self._engine_id = Id
 
     def config(self, config):
         """ pass in the configuration file
@@ -120,7 +119,7 @@ class fileDownloader(object):
         func = getattr(self, funcName)
 
         # get the Iems based on an actionId only, TRUE causes this functonality
-        itemDataList = self._db.getItemList(self._engineId, actionName, True)
+        itemDataList = self._db.getItemList(self._engine_id, actionName, True)
 
         i = 0
         total = len(itemDataList)
@@ -129,13 +128,13 @@ class fileDownloader(object):
         for itemId, itemURI in itemDataList:
             i += 1
             func(itemURI)
-            self._db.updateItem(self._engineId, itemId, actionId, datetime.datetime.now())
+            self._db.updateItem(self._engine_id, itemId, actionId, datetime.datetime.now())
 
             if i % 1000 == 0:
                 interTime = timeit.default_timer()
                 step = ((interTime - startTime) / i)
                 eta = step * (total - i)
-                print 'Processing: %s / %s ETA: %ss at %s' % (i, total, eta, step)
+                print('Processing: %s / %s ETA: %ss at %s' % (i, total, eta, step))
 
                 if self._db != None:
                     self._db.commit_db()
@@ -175,11 +174,11 @@ class fileDownloader(object):
 
             p = Popen(['youtube-dl', uri, outputPath, '--keep-video','--restrict-filenames', '--write-info-json', '--add-metadata'],stdout=PIPE)
             stdout, stderr = p.communicate()
-            print '\t%s - %s' % (uri, outputPath)
+            print('\t%s - %s' % (uri, outputPath))
             
         except:
-            print 'ERROR'
-            print stderr
+            print('ERROR')
+            print(stderr)
 
     def    getDocuments(self, uri):
         """ Will query the page and download PDF Files...
@@ -246,10 +245,10 @@ class fileDownloader(object):
             br.addheaders = _dicProps["headers"]
 
             # The site we will navigate into, handling it's session
-            print '\t%s\t%s' % (fname,uri)
+            print('\t%s\t%s' % (fname,uri))
             br.open(uri)
         except:
-            print "\t\tUnexpected error in %s(-, %s):\t%s" % (fname, uri, sys.exc_info()[0])
+            print("\t\tUnexpected error in %s(-, %s):\t%s" % (fname, uri, sys.exc_info()[0]))
 
         return br
 
@@ -280,22 +279,22 @@ class fileDownloader(object):
                     dUrl = link.base_url + link.url
 
                 if self._db != None:
-                    itemId = self._db.addNewItem(self._engineId, dUrl, datetime.datetime.now())
+                    itemId = self._db.addNewItem(self._engine_id, dUrl, datetime.datetime.now())
 
                 if itemId > 0:
                     fileName = self.download(dUrl, download_path)
 
                     if self._db != None:
-                        itemIdFile = self._db.addItem(self._engineId, fileName, datetime.datetime.now(), ('checksum',))
-                        self._db.addItemLink(self._engineId, itemId, itemIdFile, "download")
+                        itemIdFile = self._db.addItem(self._engine_id, fileName, datetime.datetime.now(), ('checksum',))
+                        self._db.addItemLink(self._engine_id, itemId, itemIdFile, "download")
 
                     fileNames.append(fileName)
 
             except NameError, e:
-                print "\t\tError\t%s:" % e.args[0]
+                print("\t\tError\t%s:" % e.args[0])
 
             except:
-                print "\t\tUnexpected error:\t%s" % sys.exc_info()[0]
+                print("\t\tUnexpected error:\t%s" % sys.exc_info()[0])
 
         self._state = 'Waiting...'
 
@@ -315,7 +314,7 @@ class fileDownloader(object):
 
     def download(self, uri, download_path):
         fname = 'download'
-        print fname, uri, download_path
+        print(fname, uri, download_path)
 
         req = urllib2.Request(uri)
         r = urllib2.urlopen(req)
@@ -345,11 +344,12 @@ class fileDownloader(object):
 def main():
     import imp
     import inspect
+    import configparser
 
     # the following is a hack to allow me to load mods and classes from a filepath
     modPath = os.path.dirname(__file__)
     corepath = os.path.split(modPath)[0]
-    filepath = os.path.join(corepath, 'PeregrinDB.py')
+    filepath = os.path.join(corepath, 'db', 'PeregrinDB.py')
     mod_name,file_ext = os.path.splitext(os.path.split(filepath)[-1])
 
     py_mod = imp.load_source(mod_name, filepath)
@@ -361,10 +361,10 @@ def main():
             break
 
     # configuration details
-    cfg_path = os.path.join(corepath, 'PeregrinDaemon.cfg')
-    config = ConfigParser.RawConfigParser()
+    cfg_path = os.path.join(corepath, 'config', 'PeregrinDaemon.cfg')
+    config = configparser.RawConfigParser()
     config.readfp(open(cfg_path))
-    print 'Running >> %s' % datetime.datetime.today()
+    print('Running >> %s' % datetime.datetime.today())
 
     # database, details in the config file
     db.connect_db(config)
@@ -378,15 +378,15 @@ def main():
     obj.config(config)
     obj.acceptDB(db)
 
-    obj._engineId = obj._db.addEngine(obj._title, obj._version, obj._descr)
+    obj._engine_id = obj._db.addEngine(obj._title, obj._version, obj._descr)
     obj._db.commit_db()
 
     obj.start()
 
-    print 'EngineId:\t%s\t[%s]' % (obj._itemId, obj._engineId)
+    print('EngineId:\t%s\t[%s]' % (obj._itemId, obj._engine_id))
 
-    print obj.info()
-    print obj.actions()
+    print(obj.info())
+    print(obj.actions())
 
     obj.run()
 
@@ -394,8 +394,8 @@ def main():
     del db
     del config
     
-    print 'Ending >> %s' % datetime.datetime.today()
-    print '================================================'
+    print('Ending >> %s' % datetime.datetime.today())
+    print('================================================')
     
     return 0
 
