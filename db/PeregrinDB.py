@@ -765,31 +765,34 @@ order by id.ItemDataValue;""",(itemData, itemData, itemId_left, linkTypeId))
 
     def getItemTree(self, engineId, itemId, recursive = True):
         """ returns a dictionary of items under the specified itemId from the
-            itemLinks table... This is recursive unless spcified
+            itemLinks table... This is recursive
         """
         fName = 'getItemTree'
         itemValues = dict()
 
-        #print('%s>>\t%s\t%s\t' % (fName, engineId, itemId),)
         try:
-            sql = 'CALL proc_ItemTree(%s)' % itemId
+            sql = """SELECT  ItemID_right,
+        (SELECT itemURI FROM Items WHERE itemId = ItemID_Right) AS ItemURI,
+		ItemID_left,
+		LinkTypeID,
+        EngineID
+FROM    (SELECT * FROM ItemLinks
+         ORDER BY ItemID_left, ItemID_right) l,
+        (SELECT @pv := {0}) s
+WHERE   find_in_set(ItemID_left, @pv) > 0
+AND     @pv := concat(@pv, ',', ItemID_right);""".format(itemId)
+
             self._cursor.execute(sql)
             rows = self._cursor.fetchall()
-            #print(len(rows))
+            print(rows)
 
             # pop the cursor here as for some reason it'll trigger a 2014 mysql error
             self._cursor.close()
             self._cursor = self._con.cursor()
 
             for row in rows:
-                # http://answers.oreilly.com/topic/156-how-to-identify-null-values-in-result-sets-in-mysql/
-                row = list (row)  # convert nonmutable tuple to mutable list
-                for i in range (0, len (row)):
-                    if row[i] == None:  # is the column value NULL?
-                          row[i] = "NULL"
-
-                print(row)
-                itemValues.update({'%s' % row[0]: (row[1], row[2], row[3])}) #, row[2], row[3])})
+                data = {row['ItemURI']: (None, None, None)}
+                itemValues.update(data) #, row[2], row[3])})
 
         except mdb.Error as e:
             print("\tError in %s(-, %s, %s):\t%s" % (fName, engineId, itemId, e))
@@ -798,7 +801,6 @@ order by id.ItemDataValue;""",(itemData, itemData, itemId_left, linkTypeId))
             print("\tUnexpected error in %s(-, %s, %s):\t%s" % (fName, engineId, itemId, e))
 
         finally:
-
             return itemValues
 
 
