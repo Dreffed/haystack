@@ -1,10 +1,10 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-#
-#  PeregrinDB.py
-#
-#  Copyright 2013 David Gloyn-Cox <david@leviathan>
-#
+# pylint: disable-msg=C0103
+"""
+
+@project: Peregrin (Haystack)
+@author: david gloyn-cox
+"""
 import sys
 import pymysql as mdb
 import datetime
@@ -36,6 +36,16 @@ class PeregrinDB:
         """
         return (self._title, self._version, self._descr)
 
+    def get_id(self):
+        """Returns the engine id, this is normally obtained
+        from the database."""
+        return self._engine_id
+
+    def set_id(self, engine_id):
+        """Allows the user to overrider the engine id, this
+        will not update the underlying database value."""
+        self._engine_id = engine_id
+        
     def connect_db(self, config):
         """ Connect to the database, reads from the pass ed
         configuration

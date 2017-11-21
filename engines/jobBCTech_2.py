@@ -21,14 +21,12 @@
 #  MA 02110-1301, USA.
 #
 #
-from BeautifulSoup import BeautifulSoup
-from urlparse import urlparse
+from bs4 import BeautifulSoup
+from urllib.parse import urlparse
 
 import timeit
-import mechanize
-import cookielib
-#import urllib
-#import ConfigParser
+import mechanicalsoup
+from http import cookiejar
 
 import datetime
 import os
@@ -227,10 +225,6 @@ class bcTechJob(object):
             
             #print('\t%s\t[%s] %s' % (fname, itemId, uri))
             br = self.open_page(uri)
-            if br.response() is None:
-                # exit
-                print('\tInvalid URI - %s' % (uri))
-                return
                 
             stage +=1
 
@@ -297,27 +291,14 @@ class bcTechJob(object):
         _dicProps["referer"] = True
         _dicProps["robots"] = False
 
-        _dicProps["headers"] = [('User-agent', 'Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.0.1) Gecko/2008071615 Fedora/3.0.1-1.fc9 Firefox/3.0.1')]
+        _dicProps["headers"] = [('User-agent', )]
 
         # empty browser
-        br = mechanize.Browser()
-
-        # Cookie Jar
-        cj = cookielib.LWPCookieJar()
-        br.set_cookiejar(cj)
-
-        # Browser options
-        br.set_handle_equiv(_dicProps["equiv"])
-        br.set_handle_gzip(_dicProps["gzip"])
-        br.set_handle_redirect(_dicProps["redirect"])
-        br.set_handle_referer(_dicProps["referer"])
-        br.set_handle_robots(_dicProps["robots"])
-
-        # Follows refresh 0 but not hangs on refresh > 0
-        br.set_handle_refresh(mechanize._http.HTTPRefreshProcessor(), max_time=1)
-
-        # User-Agent (this is cheating, ok?)
-        br.addheaders = _dicProps["headers"]
+        br = mechanicalsoup.StatefulBrowser(
+            soup_config={'features': 'lxml'},
+            raise_on_404=True,
+            user_agent='Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.0.1) Gecko/2008071615 Fedora/3.0.1-1.fc9 Firefox/3.0.1',
+        )
 
         # The site we will navigate into, handling it's session
         br.open(url)
@@ -331,22 +312,16 @@ class bcTechJob(object):
         br = self.open_page(uri)
 
         # Select the first (index zero) form
-        br.select_form(nr=0)
+        search_form = br.select_form('form[name="frm1"]')  
+        print(search_form)
 
         # submit the fields...
-        #br.form['initsrch'] = 1
-        #br.form['recruiters'] = 'yes'
-        #br.form['st'] = 'bas'
-        br.form['keyword'] = keyword
-        #br.form['anyall'] = 'any'
-        #br.form['searchin'] = 'jobdesc'
-        #br.form['category'] = 0
-        #br.form['company_list'] = 0
-        #br.form['posted'] = 'last10080'
-        #br.form['by_x'] = 'ins_date'
+        br['keyword'] = keyword
 
-        resp = br.submit()
-        baseParse = urlparse(resp.geturl())
+        resp = br.submit_selected()
+        print(br.get_current_page().url)
+
+        baseParse = urlparse(resp.url)
         baseurl = "%s://%s" % (baseParse.scheme, baseParse.netloc)
 
         # loop until all jobs found
@@ -359,11 +334,20 @@ class bcTechJob(object):
             count += 1
 
             # gets the next page
-            nextLink  = [l for l in br.links(text_regex='Next')]
+            next_links = []
+            all_links = []
+            links  = [l for l in br.get_current_page().select('a')]
+            for l in links:
+                if l.text.startswith('Next'):
+                    next_links.append(l)
+                    break
 
-            # returns the links for jobs on this page
-            # http://www.bctechnology.com/jobs/Teradici-Corporation/110321/Inside-Sales-Support.cfm?showid=110321&j=419546527912238&showdesc=0&perpage=10&page=1&startrow=1
-            all_links = [l for l in br.links(url_regex='.cfm\?showid=')]
+                if l.id == 'job-title-link':
+                    all_links.append(l)
+                
+            print(all_links)
+            print(next_links)
+            return
 
             # process these links...
             found = len(all_links)
@@ -395,7 +379,7 @@ class bcTechJob(object):
 
                     stage += 1
 
-                except NameError, e:
+                except NameError as e:
                     print("\t\tError in %s(Loop:%s, Stage:%s, Job:%s)\t%s:" % (fname, count, stage, jobId, e.args[0]))
 
                 except:
@@ -406,6 +390,7 @@ class bcTechJob(object):
 
             if len(nextLink) > 0:
                 br.follow_link(nextLink[0])
+                results_page = br.get_current_page()
                 hasMore = (new > 0)
 
                 pTime = random.randint(1, 10)
@@ -458,7 +443,7 @@ def main():
 
     # configuration details
     cfg_path = os.path.join(corepath, 'config', 'PeregrinDaemon.cfg')
-    config = ConfigParser.RawConfigParser()
+    config = configparser.RawConfigParser()
     config.readfp(open(cfg_path))
     print('Running >> %s' % datetime.datetime.today())
 
