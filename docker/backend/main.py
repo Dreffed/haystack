@@ -295,6 +295,296 @@ async def update_config(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# Database Admin API endpoints
+@app.get("/api/admin/tables")
+async def list_tables(db: PeregrinDB = Depends(get_database)):
+    """List all database tables"""
+    try:
+        tables = [
+            {"name": "Engines", "description": "Scraping engines", "primary_key": "EngineId"},
+            {"name": "Items", "description": "Scraped items", "primary_key": "itemId"},
+            {"name": "ItemData", "description": "Item data fields", "primary_key": "ItemDataId"},
+            {"name": "Actions", "description": "Engine actions", "primary_key": "actionId"},
+            {"name": "EngineActions", "description": "Engine-action mapping", "primary_key": "engineActionId"},
+            {"name": "ItemEvents", "description": "Item processing events", "primary_key": "ItemEventId"},
+            {"name": "ItemLinks", "description": "Item relationships", "primary_key": "itemLinkId"},
+            {"name": "LinkTypes", "description": "Link type definitions", "primary_key": "LinkTypeId"},
+            {"name": "Status", "description": "System status messages", "primary_key": "statusId"},
+            {"name": "Config", "description": "System configuration", "primary_key": "configId"}
+        ]
+        return {"tables": tables}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/admin/tables/{table_name}/schema")
+async def get_table_schema(table_name: str, db: PeregrinDB = Depends(get_database)):
+    """Get table schema information"""
+    try:
+        schemas = {
+            "Engines": [
+                {"name": "EngineId", "type": "int", "primary": True, "auto_increment": True},
+                {"name": "EngineName", "type": "varchar(100)", "required": True},
+                {"name": "EngineVersion", "type": "varchar(20)", "required": True},
+                {"name": "EngineDesc", "type": "text", "required": False},
+                {"name": "EngineDisabled", "type": "tinyint(1)", "default": 0},
+                {"name": "EngineCreated", "type": "timestamp", "default": "CURRENT_TIMESTAMP"}
+            ],
+            "Items": [
+                {"name": "itemId", "type": "int", "primary": True, "auto_increment": True},
+                {"name": "ItemURI", "type": "text", "required": True},
+                {"name": "EngineId", "type": "int", "required": True, "foreign_key": "Engines.EngineId"},
+                {"name": "ItemDTS", "type": "timestamp", "required": True},
+                {"name": "itemCreated", "type": "timestamp", "default": "CURRENT_TIMESTAMP"}
+            ],
+            "ItemData": [
+                {"name": "ItemDataId", "type": "int", "primary": True, "auto_increment": True},
+                {"name": "itemId", "type": "int", "required": True, "foreign_key": "Items.itemId"},
+                {"name": "itemData", "type": "varchar(100)", "required": True},
+                {"name": "itemDataValue", "type": "text", "required": False},
+                {"name": "itemDataSeq", "type": "int", "default": 0},
+                {"name": "itemDataAdded", "type": "timestamp", "default": "CURRENT_TIMESTAMP"}
+            ],
+            "Actions": [
+                {"name": "actionId", "type": "int", "primary": True, "auto_increment": True},
+                {"name": "actionName", "type": "varchar(100)", "required": True},
+                {"name": "actionDesc", "type": "text", "required": False},
+                {"name": "actionCreated", "type": "timestamp", "default": "CURRENT_TIMESTAMP"}
+            ],
+            "Config": [
+                {"name": "configId", "type": "int", "primary": True, "auto_increment": True},
+                {"name": "configName", "type": "varchar(100)", "required": True},
+                {"name": "configValue", "type": "text", "required": False},
+                {"name": "configUpdated", "type": "timestamp", "default": "CURRENT_TIMESTAMP"}
+            ]
+        }
+        
+        if table_name not in schemas:
+            raise HTTPException(status_code=404, detail=f"Table {table_name} not found")
+        
+        return {"table": table_name, "columns": schemas[table_name]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/admin/tables/{table_name}/data")
+async def get_table_data(
+    table_name: str,
+    limit: int = Query(50, le=1000),
+    offset: int = Query(0, ge=0),
+    search: Optional[str] = None,
+    db: PeregrinDB = Depends(get_database)
+):
+    """Get table data with pagination and search"""
+    try:
+        # Use existing database methods where available
+        if table_name == "Engines":
+            data = db.getEngines(limit=limit, offset=offset)
+        elif table_name == "Items":
+            data = db.getItems(limit=limit, offset=offset)
+        elif table_name == "ItemData":
+            data = db.getItemDataPaginated(limit=limit, offset=offset)
+        elif table_name == "Actions":
+            data = db.getActions(limit=limit, offset=offset)
+        elif table_name == "Config":
+            data = db.getAllConfig(limit=limit, offset=offset)
+        elif table_name == "Status":
+            data = db.getStatus(limit=limit)
+        else:
+            raise HTTPException(status_code=404, detail=f"Table {table_name} not supported")
+        
+        # Get total count for pagination
+        try:
+            total_count = db.getTableCount(table_name)
+        except:
+            total_count = len(data) if data else 0
+        
+        # Apply search if provided
+        if search and data:
+            try:
+                data = db.searchTable(table_name, search, limit=limit, offset=offset)
+                total_count = len(data)  # Search results count
+            except:
+                # Fallback to basic filtering
+                data = [record for record in data if search.lower() in str(record).lower()]
+        
+        return {
+            "table": table_name,
+            "data": data or [],
+            "pagination": {
+                "limit": limit,
+                "offset": offset,
+                "total": total_count,
+                "has_next": (offset + limit) < total_count,
+                "has_prev": offset > 0
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/admin/tables/{table_name}/records/{record_id}")
+async def get_record(table_name: str, record_id: int, db: PeregrinDB = Depends(get_database)):
+    """Get a specific record by ID"""
+    try:
+        # Route to appropriate method based on table
+        if table_name == "Items":
+            uri = db.getItemURI(record_id)
+            if not uri:
+                raise HTTPException(status_code=404, detail="Record not found")
+            
+            item_data = db.getItemDataAll(record_id)
+            return {
+                "itemId": record_id,
+                "ItemURI": uri,
+                "data": [{"type": row[0], "value": row[1]} for row in item_data]
+            }
+        else:
+            # Would need to implement generic record retrieval
+            return {"message": f"Record retrieval for {table_name} not yet implemented"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/admin/tables/{table_name}/records/{record_id}")
+async def update_record(
+    table_name: str, 
+    record_id: int, 
+    record_data: Dict[str, Any], 
+    db: PeregrinDB = Depends(get_database)
+):
+    """Update a specific record"""
+    try:
+        # Update record based on table type
+        if table_name == "Engines":
+            result = db.updateEngine(
+                record_id,
+                name=record_data.get("EngineName"),
+                version=record_data.get("EngineVersion"), 
+                description=record_data.get("EngineDesc"),
+                disabled=record_data.get("EngineDisabled")
+            )
+        elif table_name == "ItemData":
+            result = db.updateItemData(
+                record_id,
+                data_type=record_data.get("itemData"),
+                value=record_data.get("itemDataValue"),
+                sequence=record_data.get("itemDataSeq")
+            )
+        elif table_name == "Config":
+            if "configValue" in record_data:
+                db.addConfig(db.get_id(), record_data.get("configName", ""), record_data["configValue"])
+                result = True
+            else:
+                result = False
+        else:
+            raise HTTPException(status_code=400, detail=f"Update not supported for table {table_name}")
+        
+        if result:
+            return {"message": "Record updated successfully"}
+        else:
+            raise HTTPException(status_code=400, detail="No changes made to record")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/admin/tables/{table_name}/records")
+async def create_record(
+    table_name: str, 
+    record_data: Dict[str, Any], 
+    db: PeregrinDB = Depends(get_database)
+):
+    """Create a new record"""
+    try:
+        # Create record based on table type
+        if table_name == "Items":
+            item_id = db.addItem(
+                record_data["EngineId"],
+                record_data["ItemURI"], 
+                datetime.now()
+            )
+            return {"message": "Record created", "id": item_id}
+        elif table_name == "ItemData":
+            db.addItemData(
+                record_data["itemId"],
+                record_data["itemData"],
+                record_data.get("itemDataValue", ""),
+                record_data.get("itemDataSeq", 0)
+            )
+            return {"message": "ItemData record created"}
+        
+        return {"message": f"Create for {table_name} not yet implemented"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/admin/tables/{table_name}/records/{record_id}")
+async def delete_record(table_name: str, record_id: int, db: PeregrinDB = Depends(get_database)):
+    """Delete a specific record"""
+    try:
+        result = db.deleteRecord(table_name, record_id)
+        if result:
+            return {"message": "Record deleted successfully"}
+        else:
+            raise HTTPException(status_code=404, detail="Record not found or could not be deleted")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Engine-specific form configuration endpoints
+@app.get("/api/admin/engines/forms")
+async def get_engine_forms(db: PeregrinDB = Depends(get_database)):
+    """Get form configurations for all engines"""
+    try:
+        forms = {
+            "craigslist": {
+                "title": "Craigslist Job Scraper",
+                "description": "Scrapes job listings from Craigslist",
+                "fields": {
+                    "uri": {"type": "url", "label": "Base URI", "required": True, "default": "craigslist.ca"},
+                    "keywords": {
+                        "type": "array",
+                        "label": "Search Keywords", 
+                        "required": True,
+                        "item_schema": {
+                            "uriPrefix": {"type": "text", "label": "City", "default": "vancouver"},
+                            "urlLang": {"type": "text", "label": "Language", "default": "en"},
+                            "urlCountry": {"type": "text", "label": "Country", "default": "ca"},
+                            "path": {"type": "text", "label": "Path", "default": "/search/"},
+                            "query": {"type": "text", "label": "Search Query", "required": True},
+                            "category": {"type": "text", "label": "Category", "default": "jjj"}
+                        }
+                    }
+                },
+                "actions": ["getItems", "getJobs"]
+            },
+            "webScraper": {
+                "title": "Generic Web Scraper",
+                "description": "Generic web page scraper",
+                "fields": {
+                    "uri": {"type": "url", "label": "Target URL", "required": True},
+                    "selectors": {
+                        "type": "array",
+                        "label": "CSS Selectors",
+                        "item_schema": {
+                            "name": {"type": "text", "label": "Field Name", "required": True},
+                            "selector": {"type": "text", "label": "CSS Selector", "required": True},
+                            "attribute": {"type": "text", "label": "Attribute", "default": "text"}
+                        }
+                    }
+                },
+                "actions": ["scrape", "extract"]
+            }
+        }
+        return {"forms": forms}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/admin/engines/{engine_name}/form")
+async def get_engine_form(engine_name: str, db: PeregrinDB = Depends(get_database)):
+    """Get form configuration for specific engine"""
+    try:
+        forms = await get_engine_forms(db)
+        if engine_name not in forms["forms"]:
+            raise HTTPException(status_code=404, detail=f"Engine {engine_name} not found")
+        
+        return {"engine": engine_name, "form": forms["forms"][engine_name]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Job management endpoints
 @app.post("/api/jobs/scrape")
 async def create_scraping_job(

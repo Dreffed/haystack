@@ -45,6 +45,11 @@
                             <i class="fas fa-wrench me-1"></i>Config
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#admin" onclick="showSection('admin')">
+                            <i class="fas fa-database me-1"></i>Database Admin
+                        </a>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -263,6 +268,118 @@
                     <div id="config-form">
                         <p class="text-muted">Loading configuration...</p>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Database Admin Section -->
+        <div id="admin" class="content-section" style="display: none;">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-table me-2"></i>Database Tables
+                            </h6>
+                        </div>
+                        <div class="card-body p-2">
+                            <div class="list-group list-group-flush" id="admin-tables-list">
+                                <p class="text-muted small">Loading tables...</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-cogs me-2"></i>Engine Forms
+                            </h6>
+                        </div>
+                        <div class="card-body p-2">
+                            <div class="list-group list-group-flush" id="admin-engines-list">
+                                <p class="text-muted small">Loading engines...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-9">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0" id="admin-content-title">
+                                <i class="fas fa-database me-2"></i>Select a table or engine
+                            </h5>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-success" onclick="showCreateRecordModal()" id="admin-create-btn" style="display: none;">
+                                    <i class="fas fa-plus me-1"></i>Create
+                                </button>
+                                <button type="button" class="btn btn-outline-primary" onclick="refreshAdminContent()" id="admin-refresh-btn" style="display: none;">
+                                    <i class="fas fa-sync me-1"></i>Refresh
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="admin-content">
+                                <div class="text-center text-muted py-5">
+                                    <i class="fas fa-database fa-3x mb-3"></i>
+                                    <p>Select a database table from the left panel to view and edit records.</p>
+                                    <p class="small">Or choose an engine to configure scraping parameters.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Modals -->
+    <!-- Record Edit Modal -->
+    <div class="modal fade" id="recordEditModal" tabindex="-1" aria-labelledby="recordEditModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="recordEditModalLabel">Edit Record</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="recordEditForm">
+                        <div id="recordEditFields">
+                            <!-- Dynamic fields will be inserted here -->
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" onclick="deleteCurrentRecord()" id="deleteRecordBtn" style="display: none;">
+                        <i class="fas fa-trash me-1"></i>Delete
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="saveRecord()">
+                        <i class="fas fa-save me-1"></i>Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Engine Form Modal -->
+    <div class="modal fade" id="engineFormModal" tabindex="-1" aria-labelledby="engineFormModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="engineFormModalLabel">Engine Configuration</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="engineFormContent">
+                        <!-- Dynamic engine form will be inserted here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" onclick="saveEngineConfig()">
+                        <i class="fas fa-play me-1"></i>Save & Start Engine
+                    </button>
                 </div>
             </div>
         </div>

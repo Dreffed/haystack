@@ -4,7 +4,8 @@
       "Bash(python:*)",
       "Bash(mkdir:*)",
       "Bash(docker-compose config:*)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

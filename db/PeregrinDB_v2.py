@@ -552,6 +552,280 @@ class PeregrinDB:
         else:
             return {"status": "not_connected"}
 
+    # Admin interface methods
+    def getEngines(self, limit=100, offset=0):
+        """Get all engines with pagination"""
+        try:
+            with self.get_session() as session:
+                result = session.execute(
+                    text("""
+                        SELECT EngineId, EngineName, EngineVersion, EngineDesc, 
+                               EngineDisabled, EngineCreated
+                        FROM Engines
+                        ORDER BY EngineCreated DESC
+                        LIMIT :limit OFFSET :offset
+                    """),
+                    {"limit": limit, "offset": offset}
+                )
+                
+                return [dict(row._mapping) for row in result]
+                
+        except Exception as e:
+            logger.error(f"Error getting engines: {e}")
+            raise PeregrinDBError(f"Failed to get engines: {e}")
+
+    def getItems(self, limit=100, offset=0, engine_id=None):
+        """Get items with pagination and optional engine filter"""
+        try:
+            with self.get_session() as session:
+                where_clause = ""
+                params = {"limit": limit, "offset": offset}
+                
+                if engine_id:
+                    where_clause = "WHERE i.EngineId = :engine_id"
+                    params["engine_id"] = engine_id
+                
+                result = session.execute(
+                    text(f"""
+                        SELECT i.itemId, i.ItemURI, i.EngineId, i.ItemDTS, i.itemCreated,
+                               e.EngineName
+                        FROM Items i
+                        LEFT JOIN Engines e ON i.EngineId = e.EngineId
+                        {where_clause}
+                        ORDER BY i.itemCreated DESC
+                        LIMIT :limit OFFSET :offset
+                    """),
+                    params
+                )
+                
+                return [dict(row._mapping) for row in result]
+                
+        except Exception as e:
+            logger.error(f"Error getting items: {e}")
+            raise PeregrinDBError(f"Failed to get items: {e}")
+
+    def getItemDataPaginated(self, limit=100, offset=0, item_id=None):
+        """Get item data with pagination and optional item filter"""
+        try:
+            with self.get_session() as session:
+                where_clause = ""
+                params = {"limit": limit, "offset": offset}
+                
+                if item_id:
+                    where_clause = "WHERE id.itemId = :item_id"
+                    params["item_id"] = item_id
+                
+                result = session.execute(
+                    text(f"""
+                        SELECT id.ItemDataId, id.itemId, id.itemData, id.itemDataValue, 
+                               id.itemDataSeq, id.itemDataAdded, i.ItemURI
+                        FROM ItemData id
+                        LEFT JOIN Items i ON id.itemId = i.itemId
+                        {where_clause}
+                        ORDER BY id.itemDataAdded DESC
+                        LIMIT :limit OFFSET :offset
+                    """),
+                    params
+                )
+                
+                return [dict(row._mapping) for row in result]
+                
+        except Exception as e:
+            logger.error(f"Error getting item data: {e}")
+            raise PeregrinDBError(f"Failed to get item data: {e}")
+
+    def getActions(self, limit=100, offset=0):
+        """Get all actions with pagination"""
+        try:
+            with self.get_session() as session:
+                result = session.execute(
+                    text("""
+                        SELECT actionId, actionName, actionDesc, actionCreated
+                        FROM Actions
+                        ORDER BY actionCreated DESC
+                        LIMIT :limit OFFSET :offset
+                    """),
+                    {"limit": limit, "offset": offset}
+                )
+                
+                return [dict(row._mapping) for row in result]
+                
+        except Exception as e:
+            logger.error(f"Error getting actions: {e}")
+            raise PeregrinDBError(f"Failed to get actions: {e}")
+
+    def getAllConfig(self, limit=100, offset=0):
+        """Get all configuration values with pagination"""
+        try:
+            with self.get_session() as session:
+                result = session.execute(
+                    text("""
+                        SELECT configId, configName, configValue, configUpdated
+                        FROM Config
+                        ORDER BY configUpdated DESC
+                        LIMIT :limit OFFSET :offset
+                    """),
+                    {"limit": limit, "offset": offset}
+                )
+                
+                return [dict(row._mapping) for row in result]
+                
+        except Exception as e:
+            logger.error(f"Error getting config: {e}")
+            raise PeregrinDBError(f"Failed to get config: {e}")
+
+    def getTableCount(self, table_name):
+        """Get total count of records in a table"""
+        try:
+            with self.get_session() as session:
+                result = session.execute(
+                    text(f"SELECT COUNT(*) as count FROM {table_name}")
+                )
+                
+                return result.fetchone()[0]
+                
+        except Exception as e:
+            logger.error(f"Error getting table count for {table_name}: {e}")
+            raise PeregrinDBError(f"Failed to get table count: {e}")
+
+    def searchTable(self, table_name, search_term, limit=100, offset=0):
+        """Search within a table for matching records"""
+        try:
+            with self.get_session() as session:
+                # Define searchable columns for each table
+                search_columns = {
+                    "Engines": ["EngineName", "EngineDesc"],
+                    "Items": ["ItemURI"],
+                    "ItemData": ["itemData", "itemDataValue"],
+                    "Actions": ["actionName", "actionDesc"],
+                    "Config": ["configName", "configValue"],
+                    "Status": ["StatusMessage"]
+                }
+                
+                if table_name not in search_columns:
+                    raise PeregrinDBError(f"Search not supported for table {table_name}")
+                
+                columns = search_columns[table_name]
+                search_conditions = " OR ".join([f"{col} LIKE :search" for col in columns])
+                
+                result = session.execute(
+                    text(f"""
+                        SELECT * FROM {table_name}
+                        WHERE {search_conditions}
+                        LIMIT :limit OFFSET :offset
+                    """),
+                    {"search": f"%{search_term}%", "limit": limit, "offset": offset}
+                )
+                
+                return [dict(row._mapping) for row in result]
+                
+        except Exception as e:
+            logger.error(f"Error searching table {table_name}: {e}")
+            raise PeregrinDBError(f"Failed to search table: {e}")
+
+    def updateEngine(self, engine_id, name=None, version=None, description=None, disabled=None):
+        """Update an engine record"""
+        try:
+            with self.get_session() as session:
+                updates = []
+                params = {"engine_id": engine_id}
+                
+                if name is not None:
+                    updates.append("EngineName = :name")
+                    params["name"] = name
+                if version is not None:
+                    updates.append("EngineVersion = :version")
+                    params["version"] = version
+                if description is not None:
+                    updates.append("EngineDesc = :description")
+                    params["description"] = description
+                if disabled is not None:
+                    updates.append("EngineDisabled = :disabled")
+                    params["disabled"] = disabled
+                
+                if not updates:
+                    return False
+                
+                session.execute(
+                    text(f"""
+                        UPDATE Engines 
+                        SET {', '.join(updates)}
+                        WHERE EngineId = :engine_id
+                    """),
+                    params
+                )
+                
+                return True
+                
+        except Exception as e:
+            logger.error(f"Error updating engine: {e}")
+            raise PeregrinDBError(f"Failed to update engine: {e}")
+
+    def updateItemData(self, item_data_id, data_type=None, value=None, sequence=None):
+        """Update an item data record"""
+        try:
+            with self.get_session() as session:
+                updates = []
+                params = {"item_data_id": item_data_id}
+                
+                if data_type is not None:
+                    updates.append("itemData = :data_type")
+                    params["data_type"] = data_type
+                if value is not None:
+                    updates.append("itemDataValue = :value")
+                    params["value"] = value
+                if sequence is not None:
+                    updates.append("itemDataSeq = :sequence")
+                    params["sequence"] = sequence
+                
+                if not updates:
+                    return False
+                
+                session.execute(
+                    text(f"""
+                        UPDATE ItemData 
+                        SET {', '.join(updates)}
+                        WHERE ItemDataId = :item_data_id
+                    """),
+                    params
+                )
+                
+                return True
+                
+        except Exception as e:
+            logger.error(f"Error updating item data: {e}")
+            raise PeregrinDBError(f"Failed to update item data: {e}")
+
+    def deleteRecord(self, table_name, record_id, id_column=None):
+        """Delete a record from a table"""
+        try:
+            with self.get_session() as session:
+                # Map tables to their primary key columns
+                primary_keys = {
+                    "Engines": "EngineId",
+                    "Items": "itemId",
+                    "ItemData": "ItemDataId",
+                    "Actions": "actionId",
+                    "Config": "configId",
+                    "Status": "statusId"
+                }
+                
+                pk_column = id_column or primary_keys.get(table_name)
+                if not pk_column:
+                    raise PeregrinDBError(f"Unknown primary key for table {table_name}")
+                
+                result = session.execute(
+                    text(f"DELETE FROM {table_name} WHERE {pk_column} = :record_id"),
+                    {"record_id": record_id}
+                )
+                
+                return result.rowcount > 0
+                
+        except Exception as e:
+            logger.error(f"Error deleting record from {table_name}: {e}")
+            raise PeregrinDBError(f"Failed to delete record: {e}")
+
+
 # Backward compatibility - create alias
 PeregrinDatabase = PeregrinDB
 
@@ -594,6 +868,8 @@ def main():
         return 1
     
     return 0
+
+
 
 if __name__ == '__main__':
     sys.exit(main())
