@@ -5,7 +5,10 @@
       "Bash(mkdir:*)",
       "Bash(docker-compose config:*)",
       "Bash(pip install:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(docker-compose:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(curl:*)"
     ],
     "deny": []
   }
