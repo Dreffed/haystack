@@ -10,8 +10,9 @@ import asyncio
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from pathlib import Path
+import uuid
 
-from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Query
+from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -21,18 +22,56 @@ import uvicorn
 sys.path.insert(0, '/app')
 sys.path.insert(0, '/app/db')
 sys.path.insert(0, '/app/engines')
+sys.path.insert(0, '/app/utils')
 
-from db.PeregrinDB import PeregrinDB
+from db.PeregrinDB_v2 import PeregrinDB, PeregrinDBError
 from engines.peregrinbase import PeregrinBase
+from utils.logging_config import get_logger, setup_logging, logging_context, set_correlation_id
+from utils.retry_utils import robust_database_operation, robust_network_operation
+
+# Set up logging
+setup_logging(
+    log_level=os.getenv('LOG_LEVEL', 'INFO'),
+    log_dir='/app/logs',
+    enable_json_logging=True,
+    enable_console_logging=True
+)
+
+logger = get_logger('api.main')
 
 # Initialize FastAPI app
 app = FastAPI(
     title="Haystack Web Collector API",
     description="REST API for managing web scraping and data collection",
-    version="1.0.0",
+    version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+@app.middleware("http")
+async def logging_middleware(request: Request, call_next):
+    """Add correlation ID and logging context to all requests"""
+    correlation_id = str(uuid.uuid4())
+    set_correlation_id(correlation_id)
+    
+    with logging_context(
+        correlation_id=correlation_id,
+        operation=f"{request.method} {request.url.path}",
+        user_id="api_user",
+        request_id=correlation_id
+    ):
+        start_time = datetime.now()
+        logger.info(f"Request started: {request.method} {request.url.path}")
+        
+        response = await call_next(request)
+        
+        duration = (datetime.now() - start_time).total_seconds()
+        logger.info(f"Request completed: {request.method} {request.url.path} - {response.status_code} - {duration:.4f}s")
+        
+        # Add correlation ID to response headers
+        response.headers["X-Correlation-ID"] = correlation_id
+        
+        return response
 
 # CORS middleware for web UI
 app.add_middleware(
@@ -83,49 +122,66 @@ class SystemHealth(BaseModel):
     last_activity: Optional[datetime]
 
 # Database dependency
-async def get_database():
-    """Get database connection"""
+@robust_database_operation
+async def get_database() -> PeregrinDB:
+    """Get database connection with connection pooling"""
     try:
         db = PeregrinDB()
-        # Use environment variables for database connection
-        import configparser
-        config = configparser.RawConfigParser()
         
         # Create config from environment variables
-        config.add_section('Database')
-        config.set('Database', 'Server', os.getenv('DB_HOST', 'database'))
-        config.set('Database', 'User', os.getenv('DB_USER', 'peregrin'))
-        config.set('Database', 'Password', os.getenv('DB_PASSWORD', 'peregrin_pass_2023'))
-        config.set('Database', 'Schema', os.getenv('DB_NAME', 'Peregrin'))
+        config = {
+            'host': os.getenv('DB_HOST', 'database'),
+            'port': int(os.getenv('DB_PORT', 3306)),
+            'user': os.getenv('DB_USER', 'peregrin'),
+            'password': os.getenv('DB_PASSWORD', 'peregrin_pass_2023'),
+            'database': os.getenv('DB_NAME', 'Peregrin'),
+            'charset': 'utf8mb4',
+            'pool_size': int(os.getenv('DB_POOL_SIZE', 10)),
+            'max_overflow': int(os.getenv('DB_MAX_OVERFLOW', 20))
+        }
         
         db.connect_db(config)
+        logger.debug("Database connection established")
         return db
-    except Exception as e:
+        
+    except PeregrinDBError as e:
+        logger.error(f"Database connection failed: {e}")
         raise HTTPException(status_code=500, detail=f"Database connection failed: {str(e)}")
+    except Exception as e:
+        logger.error(f"Unexpected database error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 # Health check endpoint
 @app.get("/health", response_model=SystemHealth)
-async def health_check(db: PeregrinDB = Depends(get_database)):
+async def health_check():
     """System health check"""
-    try:
-        # Test database connectivity
-        status = db.getStatus()
-        
-        return SystemHealth(
-            status="healthy",
-            database_connected=True,
-            active_engines=len(status),
-            pending_jobs=0,  # Would need to implement job queue
-            last_activity=datetime.now()
-        )
-    except Exception as e:
-        return SystemHealth(
-            status="unhealthy",
-            database_connected=False,
-            active_engines=0,
-            pending_jobs=0,
-            last_activity=None
-        )
+    with logging_context(operation="health_check"):
+        try:
+            db = await get_database()
+            
+            # Test database connectivity
+            status = db.getStatus(limit=10)
+            pool_status = db.get_pool_status()
+            
+            logger.info(f"Health check completed - Database pool status: {pool_status}")
+            
+            return SystemHealth(
+                status="healthy",
+                database_connected=True,
+                active_engines=pool_status.get('checked_out', 0),
+                pending_jobs=0,  # Would need to implement job queue
+                last_activity=datetime.now()
+            )
+            
+        except Exception as e:
+            logger.error(f"Health check failed: {e}", exc_info=True)
+            return SystemHealth(
+                status="unhealthy",
+                database_connected=False,
+                active_engines=0,
+                pending_jobs=0,
+                last_activity=None
+            )
 
 # Engine management endpoints
 @app.get("/api/engines", response_model=List[EngineInfo])

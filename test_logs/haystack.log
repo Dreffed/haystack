@@ -1,0 +1,22 @@
+[2025-08-03 13:50:27] INFO     [no-correlation-id] [system:unknown] haystack.logging: Logging initialized - Level: DEBUG, Handlers: console, file, json, error_json
+[2025-08-03 13:50:27] INFO     [no-correlation-id] [system:unknown] haystack.test.logging: Test info message
+[2025-08-03 13:50:27] WARNING  [no-correlation-id] [system:unknown] haystack.test.logging: Test warning message
+[2025-08-03 13:50:27] DEBUG    [no-correlation-id] [system:unknown] haystack.test.logging: Test debug message
+[2025-08-03 13:50:27] INFO     [91207f18-6aad-4cac-9dbe-cb7ab748daea] [system:unknown] haystack.test.logging: Test with correlation ID: 91207f18-6aad-4cac-9dbe-cb7ab748daea
+[2025-08-03 13:50:27] INFO     [91207f18-6aad-4cac-9dbe-cb7ab748daea] [test_engine:test_operation] haystack.test.logging: Test message with context
+[2025-08-03 13:52:46] INFO     [no-correlation-id] [system:unknown] haystack.logging: Logging initialized - Level: DEBUG, Handlers: console, file, json, error_json
+[2025-08-03 13:52:46] INFO     [no-correlation-id] [system:unknown] haystack.test.logging: Test info message
+[2025-08-03 13:52:46] WARNING  [no-correlation-id] [system:unknown] haystack.test.logging: Test warning message
+[2025-08-03 13:52:46] DEBUG    [no-correlation-id] [system:unknown] haystack.test.logging: Test debug message
+[2025-08-03 13:52:46] INFO     [8e070d76-08f6-4be2-b4bf-b857e1939436] [system:unknown] haystack.test.logging: Test with correlation ID: 8e070d76-08f6-4be2-b4bf-b857e1939436
+[2025-08-03 13:52:46] INFO     [8e070d76-08f6-4be2-b4bf-b857e1939436] [test_engine:test_operation] haystack.test.logging: Test message with context
+[2025-08-03 13:53:35] INFO     [no-correlation-id] [system:unknown] haystack.logging: Logging initialized - Level: DEBUG, Handlers: console, file, json, error_json
+[2025-08-03 13:53:35] INFO     [no-correlation-id] [system:unknown] haystack.test.logging: Test info message
+[2025-08-03 13:53:35] WARNING  [no-correlation-id] [system:unknown] haystack.test.logging: Test warning message
+[2025-08-03 13:53:35] DEBUG    [no-correlation-id] [system:unknown] haystack.test.logging: Test debug message
+[2025-08-03 13:53:35] INFO     [c25dd2b5-a582-476a-a3b4-bf40b0a25a16] [system:unknown] haystack.test.logging: Test with correlation ID: c25dd2b5-a582-476a-a3b4-bf40b0a25a16
+[2025-08-03 13:53:35] INFO     [c25dd2b5-a582-476a-a3b4-bf40b0a25a16] [test_engine:test_operation] haystack.test.logging: Test message with context
+[2025-08-03 13:53:35] WARNING  [c25dd2b5-a582-476a-a3b4-bf40b0a25a16] [system:unknown] haystack.retry_utils: Attempt 1 failed for flaky_function: Simulated failure 1. Retrying in 0.09s...
+[2025-08-03 13:53:36] WARNING  [c25dd2b5-a582-476a-a3b4-bf40b0a25a16] [system:unknown] haystack.retry_utils: Attempt 2 failed for flaky_function: Simulated failure 2. Retrying in 0.15s...
+[2025-08-03 13:53:36] INFO     [c25dd2b5-a582-476a-a3b4-bf40b0a25a16] [system:flaky_function_attempt_3] haystack.retry_utils: Operation succeeded after 3 attempts: flaky_function
+[2025-08-03 13:53:36] DEBUG    [c25dd2b5-a582-476a-a3b4-bf40b0a25a16] [system:unknown] haystack.database.peregrin: PeregrinDB v2 initialized

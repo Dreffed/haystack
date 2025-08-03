@@ -3,7 +3,8 @@
     "allow": [
       "Bash(python:*)",
       "Bash(mkdir:*)",
-      "Bash(docker-compose config:*)"
+      "Bash(docker-compose config:*)",
+      "Bash(pip install:*)"
     ],
     "deny": []
   }

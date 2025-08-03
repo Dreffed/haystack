@@ -34,6 +34,12 @@ import datetime
 import os
 import sys
 from pathlib import Path
+
+# Add utils to path for logging and retry utilities
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from utils.logging_config import get_logger, logging_context, log_performance
+from utils.retry_utils import robust_scraping_operation, robust_network_operation, RateLimitError, NetworkError
+from db.PeregrinDB_v2 import PeregrinDB, PeregrinDBError
 import time
 import random
 
@@ -43,7 +49,8 @@ class craigslist(object):
     """
 
     def __init__(self):
-        print('Init')
+        self.logger = get_logger('engines.craigslist')
+        self.logger.info('Initializing Craigslist engine')
         self._title = 'CraigsList'
         self._version = '1.0'
         self._descr = 'CraigsList Search Processor.'
@@ -127,7 +134,8 @@ class craigslist(object):
             actionName, actionParams = action
             if actionParams == None:
                 func = getattr(self, funcName)
-                print('\tRunning %s.%s()' % (self._title, funcName))
+                with logging_context(engine_name=self._title, operation=funcName):
+                    self.logger.info(f'Running {self._title}.{funcName}()')
                 func()
             else:
                 self.runAction(actionName, funcName)
@@ -142,7 +150,8 @@ class craigslist(object):
         i = 0
         total = len(itemDataList)
         startTime = timeit.default_timer()
-        print('\tRunning %s.%s() {%s} -> %s [%s] {%s}' % (self._title, funcName, actionName, total, startTime, actionId))
+        with logging_context(engine_name=self._title, operation=funcName):
+            self.logger.info(f'Running {self._title}.{funcName}() {{actionName}} -> {total} items [start: {startTime}] {{actionId}}')
 
         for itemId, itemURI in itemDataList:
             i += 1
@@ -153,7 +162,7 @@ class craigslist(object):
                 interTime = timeit.default_timer()
                 step = ((interTime - startTime) / i)
                 eta = step * (total - i)
-                print('\t\tProcessing [%s]: %s / %s ETA: %ss at %s' % (self._title, i, total, eta, step))
+                self.logger.info(f'Processing [{self._title}]: {i} / {total} ETA: {eta:.2f}s at {step:.4f}s per item')
 
                 if self._db != None:
                     self._db.commit_db()
@@ -181,10 +190,12 @@ class craigslist(object):
 
         return self._actions
 
+    @robust_scraping_operation
     def getItems(self):
         """ takes the provided URI and will
         """
-        print('\tFetching : %s\t%s [%s]' % (self._title, self._uri, self._itemId))
+        with logging_context(engine_name=self._title, operation='fetch', item_id=self._itemId):
+            self.logger.info(f'Fetching: {self._uri}')
 
         # get the keywords to use
         if self._db != None:
@@ -250,8 +261,12 @@ class craigslist(object):
                 self._db.addItemData(itemId, 'JobDescription', jobDesc, i)
                 i += 1
 
-        except:
-            print("\t\tUnexpected error in %s(-, %s, %s):\t%s" % (fname, itemId, itemURI, sys.exc_info()[0]))
+        except (mechanize.HTTPError, mechanize.URLError) as e:
+            self.logger.error(f'Network error in {fname}(itemId={itemId}, itemURI={itemURI}): {e}')
+            raise NetworkError(f'Network error in {fname}: {e}')
+        except Exception as e:
+            self.logger.error(f'Unexpected error in {fname}(itemId={itemId}, itemURI={itemURI}): {e}', exc_info=True)
+            raise PeregrinDBError(f'Failed to process {fname}: {e}')
 
     # these are generally internals for the class, called by the above methods
     def open_page(self, url):
@@ -294,6 +309,7 @@ class craigslist(object):
 
         return br
 
+    @robust_network_operation
     def process_tocpage(self, uri, keyword):
         """
         """
@@ -310,7 +326,8 @@ class craigslist(object):
             itemId = self._db.addItem(self._engineId, itemURI, datetime.datetime.now())
             self._db.addItemData(itemId, 'keyword', keyword, 0)
 
-            print('\t\t[%s] %s' % (itemId, itemURI))
+            with logging_context(item_id=itemId):
+                self.logger.debug(f'Processing item: {itemURI}')
             br = self.open_page(itemURI)
 
 #==============================================================================
@@ -351,8 +368,12 @@ class craigslist(object):
 
                     self.addListing(jobId, jobTitle, jobURI, itemId)
 
-        except:
-            print("\t\tUnexpected error in %s(-, %s, %s):\t%s" % (fname, uri, keyword, sys.exc_info()[0]))
+        except (mechanize.HTTPError, mechanize.URLError) as e:
+            self.logger.error(f'Network error in {fname}(uri={uri}, keyword={keyword}): {e}')
+            raise NetworkError(f'Network error in {fname}: {e}')
+        except Exception as e:
+            self.logger.error(f'Unexpected error in {fname}(uri={uri}, keyword={keyword}): {e}', exc_info=True)
+            raise PeregrinDBError(f'Failed to process {fname}: {e}')
 
         return itemId
 
@@ -367,7 +388,8 @@ class craigslist(object):
         # add the item
         itemId = self._db.addNewItem(self._engineId, jobURI, datetime.datetime.now(), ('extractor', 'ml'))
         if itemId > 0:
-            print('\t[%s]\t%s (%s)' % (itemId, jobTitle, jobId))
+            with logging_context(item_id=itemId):
+                self.logger.info(f'Job found: {jobTitle} (ID: {jobId})')
             # add in the item data...
             self._db.addItemLink(self._engineId, self._itemId, itemId, 'contains')
 
@@ -408,7 +430,8 @@ def main():
     config = configparser.RawConfigParser()
     with open(str(cfg_path)) as f:
         config.read_file(f)
-    print('Running >> %s' % datetime.datetime.today())
+    logger = get_logger('engines.craigslist.main')
+    logger.info(f'Starting Craigslist engine at {datetime.datetime.today()}')
 
     # database, details in the config file
     db.connect_db(config)

@@ -4,8 +4,10 @@ uvicorn[standard]>=0.24.0
 pydantic>=2.0.0
 python-multipart>=0.0.6
 
-# Database
+# Database with connection pooling
 pymysql>=1.1.0
+SQLAlchemy>=2.0.0
+sqlalchemy[pymysql]>=2.0.0
 
 # Web scraping (from original requirements)
 beautifulsoup4>=4.9.0
@@ -18,3 +20,8 @@ feedparser>=6.0.0
 python-dotenv>=1.0.0
 aiofiles>=23.0.0
 httpx>=0.25.0
+psutil>=5.9.0
+
+# Retry and circuit breaker
+tenacity>=8.2.0
+circuitbreaker>=1.4.0
