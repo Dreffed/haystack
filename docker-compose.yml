@@ -1,0 +1,111 @@
+services:
+  # Database Service
+  database:
+    image: mariadb:10.11
+    container_name: haystack_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-haystack_root_2023}
+      MYSQL_DATABASE: ${DB_NAME:-Peregrin}
+      MYSQL_USER: ${DB_USER:-peregrin}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-peregrin_pass_2023}
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./docker/database/init:/docker-entrypoint-initdb.d
+      - ./docker/database/conf:/etc/mysql/conf.d
+    ports:
+      - "3306:3306"
+    networks:
+      - haystack_network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Backend API Service
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    container_name: haystack_backend
+    restart: unless-stopped
+    environment:
+      DB_HOST: database
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-Peregrin}
+      DB_USER: ${DB_USER:-peregrin}
+      DB_PASSWORD: ${DB_PASSWORD:-peregrin_pass_2023}
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+    volumes:
+      - ./data/downloads:/app/data/downloads
+      - ./data/haystack:/app/data/haystack
+      - ./logs:/app/logs
+    ports:
+      - "8000:8000"
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - haystack_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Web UI Service
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    container_name: haystack_ui
+    restart: unless-stopped
+    environment:
+      BACKEND_URL: http://backend:8000
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - haystack_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Web Scraper Workers (optional scaling)
+  scraper-worker:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      DB_HOST: database
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-Peregrin}
+      DB_USER: ${DB_USER:-peregrin}
+      DB_PASSWORD: ${DB_PASSWORD:-peregrin_pass_2023}
+      WORKER_MODE: "true"
+      WORKER_TYPE: "scraper"
+    volumes:
+      - ./data/downloads:/app/data/downloads
+      - ./data/haystack:/app/data/haystack
+      - ./logs:/app/logs
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - haystack_network
+    deploy:
+      replicas: 2
+
+volumes:
+  db_data:
+    driver: local
+
+networks:
+  haystack_network:
+    driver: bridge

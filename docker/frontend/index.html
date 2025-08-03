@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Haystack Web Collector Suite</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-spider me-2"></i>
+                Haystack Web Collector
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#dashboard" onclick="showSection('dashboard')">
+                            <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#engines" onclick="showSection('engines')">
+                            <i class="fas fa-cogs me-1"></i>Engines
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#items" onclick="showSection('items')">
+                            <i class="fas fa-database me-1"></i>Items
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#status" onclick="showSection('status')">
+                            <i class="fas fa-list-alt me-1"></i>Status
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#config" onclick="showSection('config')">
+                            <i class="fas fa-wrench me-1"></i>Config
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <!-- Dashboard Section -->
+        <div id="dashboard" class="content-section">
+            <div class="row">
+                <div class="col-md-3 mb-4">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title" id="active-engines">-</h4>
+                                    <p class="card-text">Active Engines</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-cogs fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title" id="total-items">-</h4>
+                                    <p class="card-text">Total Items</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-database fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title" id="pending-jobs">-</h4>
+                                    <p class="card-text">Pending Jobs</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-clock fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title" id="system-status">-</h4>
+                                    <p class="card-text">System Status</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-heartbeat fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-chart-line me-2"></i>System Activity
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="activity-log" class="activity-log">
+                                <p class="text-muted">Loading system activity...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-play-circle me-2"></i>Quick Actions
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-primary" onclick="startEngine('craigslist')">
+                                    <i class="fas fa-play me-2"></i>Start Craigslist
+                                </button>
+                                <button class="btn btn-success" onclick="startEngine('fileScanner_2')">
+                                    <i class="fas fa-folder me-2"></i>Scan Files
+                                </button>
+                                <button class="btn btn-info" onclick="refreshDashboard()">
+                                    <i class="fas fa-sync me-2"></i>Refresh Data
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Engines Section -->
+        <div id="engines" class="content-section" style="display: none;">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-cogs me-2"></i>Scraping Engines
+                    </h5>
+                    <button class="btn btn-sm btn-outline-primary" onclick="refreshEngines()">
+                        <i class="fas fa-sync me-1"></i>Refresh
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Engine</th>
+                                    <th>Version</th>
+                                    <th>Status</th>
+                                    <th>Last Run</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="engines-table">
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">Loading engines...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Items Section -->
+        <div id="items" class="content-section" style="display: none;">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-database me-2"></i>Collected Items
+                    </h5>
+                    <div>
+                        <input type="search" class="form-control form-control-sm d-inline-block me-2" 
+                               placeholder="Search items..." id="items-search" style="width: 200px;">
+                        <button class="btn btn-sm btn-outline-primary" onclick="refreshItems()">
+                            <i class="fas fa-sync me-1"></i>Refresh
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>URI</th>
+                                    <th>Engine</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="items-table">
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">Loading items...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <nav>
+                        <ul class="pagination justify-content-center" id="items-pagination">
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Section -->
+        <div id="status" class="content-section" style="display: none;">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-list-alt me-2"></i>System Status Log
+                    </h5>
+                    <button class="btn btn-sm btn-outline-primary" onclick="refreshStatus()">
+                        <i class="fas fa-sync me-1"></i>Refresh
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="status-log" class="status-log">
+                        <p class="text-muted">Loading status messages...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Config Section -->
+        <div id="config" class="content-section" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-wrench me-2"></i>System Configuration
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="config-form">
+                        <p class="text-muted">Loading configuration...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Application JS -->
+    <script src="js/app.js"></script>
+</body>
+</html>
