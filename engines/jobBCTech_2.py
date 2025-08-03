@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 #  bcTechJob.py
@@ -345,9 +345,9 @@ class bcTechJob(object):
                 if l.id == 'job-title-link':
                     all_links.append(l)
                 
-            print(all_links)
-            print(next_links)
-            return
+            # Debug output - comment out for production
+            # print(all_links)
+            # print(next_links)
 
             # process these links...
             found = len(all_links)
@@ -388,8 +388,8 @@ class bcTechJob(object):
             # go to the next page
             print('\t\t>> %s/%s ' % (new, found))
 
-            if len(nextLink) > 0:
-                br.follow_link(nextLink[0])
+            if len(next_links) > 0:
+                br.follow_link(next_links[0])
                 results_page = br.get_current_page()
                 hasMore = (new > 0)
 
@@ -423,7 +423,7 @@ class bcTechJob(object):
 
 
 def main():
-    import imp
+    import importlib.util
     import inspect
     import configparser
 
@@ -433,7 +433,9 @@ def main():
     filepath = os.path.join(corepath, 'db', 'PeregrinDB.py')
     mod_name,file_ext = os.path.splitext(os.path.split(filepath)[-1])
 
-    py_mod = imp.load_source(mod_name, filepath)
+    spec = importlib.util.spec_from_file_location(mod_name, filepath)
+    py_mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(py_mod)
     classmembers = inspect.getmembers(py_mod, inspect.isclass)
     for cls in classmembers:
         my_class = getattr(py_mod, cls[0])
@@ -444,7 +446,8 @@ def main():
     # configuration details
     cfg_path = os.path.join(corepath, 'config', 'PeregrinDaemon.cfg')
     config = configparser.RawConfigParser()
-    config.readfp(open(cfg_path))
+    with open(cfg_path) as f:
+        config.read_file(f)
     print('Running >> %s' % datetime.datetime.today())
 
     # database, details in the config file

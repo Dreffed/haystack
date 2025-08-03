@@ -24,16 +24,16 @@
 import datetime
 import timeit
 
-import urllib2
+import urllib.request
 import shutil
-from urlparse import urlparse
+from urllib.parse import urlparse
 import os
 import sys
 
 from subprocess import Popen, PIPE
 
 import mechanize
-import cookielib
+import http.cookiejar as cookielib
 
 class fileDownloader(object):
 
@@ -290,7 +290,7 @@ class fileDownloader(object):
 
                     fileNames.append(fileName)
 
-            except NameError, e:
+            except NameError as e:
                 print("\t\tError\t%s:" % e.args[0])
 
             except:
@@ -310,14 +310,14 @@ class fileDownloader(object):
                 filename = cd['filename'].strip("\"'")
                 if filename: return filename
         # if no filename was found above, parse it out of the final URL.
-        return os.path.basename(urlparse.urlsplit(openUrl.uri)[2])
+        return os.path.basename(urlparse(openUrl.uri).path)
 
     def download(self, uri, download_path):
         fname = 'download'
         print(fname, uri, download_path)
 
-        req = urllib2.Request(uri)
-        r = urllib2.urlopen(req)
+        req = urllib.request.Request(uri)
+        r = urllib.request.urlopen(req)
         urlDets = urlparse(uri)
         fileName = ''
 
@@ -342,7 +342,7 @@ class fileDownloader(object):
         return fileName
 
 def main():
-    import imp
+    import importlib.util
     import inspect
     import configparser
 
@@ -352,7 +352,9 @@ def main():
     filepath = os.path.join(corepath, 'db', 'PeregrinDB.py')
     mod_name,file_ext = os.path.splitext(os.path.split(filepath)[-1])
 
-    py_mod = imp.load_source(mod_name, filepath)
+    spec = importlib.util.spec_from_file_location(mod_name, filepath)
+    py_mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(py_mod)
     classmembers = inspect.getmembers(py_mod, inspect.isclass)
     for cls in classmembers:
         my_class = getattr(py_mod, cls[0])
@@ -363,7 +365,8 @@ def main():
     # configuration details
     cfg_path = os.path.join(corepath, 'config', 'PeregrinDaemon.cfg')
     config = configparser.RawConfigParser()
-    config.readfp(open(cfg_path))
+    with open(cfg_path) as f:
+        config.read_file(f)
     print('Running >> %s' % datetime.datetime.today())
 
     # database, details in the config file

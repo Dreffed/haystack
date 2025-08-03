@@ -1,0 +1,15 @@
+# Python 3.8+ requirements for Haystack Web Collector Suite
+# Core dependencies
+beautifulsoup4>=4.9.0
+pymysql>=1.0.0
+mechanize>=0.4.5
+mechanicalsoup>=1.2.0
+
+# Optional dependencies for specific engines
+selenium>=4.0.0  # for seleniumwebform.py
+feedparser>=6.0.0  # for rssfeed.py (when implemented)
+
+# Development dependencies (uncomment if needed)
+# pytest>=6.0.0
+# flake8>=3.8.0
+# black>=21.0.0

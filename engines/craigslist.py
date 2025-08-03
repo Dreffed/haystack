@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 #  craigslist.py
@@ -21,18 +21,19 @@
 #  MA 02110-1301, USA.
 #
 #
-from BeautifulSoup import BeautifulSoup
+from bs4 import BeautifulSoup
 
 import re
 import mechanize
-import cookielib
+import http.cookiejar as cookielib
 import timeit
 
-import ConfigParser
+import configparser
 
 import datetime
 import os
 import sys
+from pathlib import Path
 import time
 import random
 
@@ -42,7 +43,7 @@ class craigslist(object):
     """
 
     def __init__(self):
-        print 'Init'
+        print('Init')
         self._title = 'CraigsList'
         self._version = '1.0'
         self._descr = 'CraigsList Search Processor.'
@@ -126,7 +127,7 @@ class craigslist(object):
             actionName, actionParams = action
             if actionParams == None:
                 func = getattr(self, funcName)
-                print '\tRunning %s.%s()' % (self._title, funcName)
+                print('\tRunning %s.%s()' % (self._title, funcName))
                 func()
             else:
                 self.runAction(actionName, funcName)
@@ -141,7 +142,7 @@ class craigslist(object):
         i = 0
         total = len(itemDataList)
         startTime = timeit.default_timer()
-        print '\tRunning %s.%s() {%s} -> %s [%s] {%s}' % (self._title, funcName, actionName, total, startTime, actionId)
+        print('\tRunning %s.%s() {%s} -> %s [%s] {%s}' % (self._title, funcName, actionName, total, startTime, actionId))
 
         for itemId, itemURI in itemDataList:
             i += 1
@@ -152,7 +153,7 @@ class craigslist(object):
                 interTime = timeit.default_timer()
                 step = ((interTime - startTime) / i)
                 eta = step * (total - i)
-                print '\t\tProcessing [%s]: %s / %s ETA: %ss at %s' % (self._title, i, total, eta, step)
+                print('\t\tProcessing [%s]: %s / %s ETA: %ss at %s' % (self._title, i, total, eta, step))
 
                 if self._db != None:
                     self._db.commit_db()
@@ -183,7 +184,7 @@ class craigslist(object):
     def getItems(self):
         """ takes the provided URI and will
         """
-        print '\tFetching : %s\t%s [%s]' % (self._title, self._uri, self._itemId)
+        print('\tFetching : %s\t%s [%s]' % (self._title, self._uri, self._itemId))
 
         # get the keywords to use
         if self._db != None:
@@ -250,7 +251,7 @@ class craigslist(object):
                 i += 1
 
         except:
-            print "\t\tUnexpected error in %s(-, %s, %s):\t%s" % (fname, itemId, itemURI, sys.exc_info()[0])
+            print("\t\tUnexpected error in %s(-, %s, %s):\t%s" % (fname, itemId, itemURI, sys.exc_info()[0]))
 
     # these are generally internals for the class, called by the above methods
     def open_page(self, url):
@@ -309,7 +310,7 @@ class craigslist(object):
             itemId = self._db.addItem(self._engineId, itemURI, datetime.datetime.now())
             self._db.addItemData(itemId, 'keyword', keyword, 0)
 
-            print '\t\t[%s] %s' % (itemId, itemURI)
+            print('\t\t[%s] %s' % (itemId, itemURI))
             br = self.open_page(itemURI)
 
 #==============================================================================
@@ -330,8 +331,8 @@ class craigslist(object):
 #                 </span>
 #            </p>
 #==============================================================================
-            all_links = [l for l in br.links(url_regex='.*\/\d+\.html$')]
-            reFind = re.compile('.*\/(\d.+)\.html')
+            all_links = [l for l in br.links(url_regex=r'.*\/\d+\.html$')]
+            reFind = re.compile(r'.*\/(.+)\.html')
             for link in all_links:
                 if link.text != '':
                     if link.url[:4] == 'http':
@@ -351,7 +352,7 @@ class craigslist(object):
                     self.addListing(jobId, jobTitle, jobURI, itemId)
 
         except:
-            print "\t\tUnexpected error in %s(-, %s, %s):\t%s" % (fname, uri, keyword, sys.exc_info()[0])
+            print("\t\tUnexpected error in %s(-, %s, %s):\t%s" % (fname, uri, keyword, sys.exc_info()[0]))
 
         return itemId
 
@@ -366,7 +367,7 @@ class craigslist(object):
         # add the item
         itemId = self._db.addNewItem(self._engineId, jobURI, datetime.datetime.now(), ('extractor', 'ml'))
         if itemId > 0:
-            print '\t[%s]\t%s (%s)' % (itemId, jobTitle, jobId)
+            print('\t[%s]\t%s (%s)' % (itemId, jobTitle, jobId))
             # add in the item data...
             self._db.addItemLink(self._engineId, self._itemId, itemId, 'contains')
 
@@ -383,17 +384,18 @@ class craigslist(object):
 
 
 def main():
-    import imp
+    import importlib.util
     import inspect
 
     # the following is a hack to allow me to load mods and classes from a filepath
     #corepath = '/home/davidg/Dropbox/StackingTurtles/projects/peregrin/poc'
-    modPath = os.path.dirname(__file__)
-    corepath = os.path.split(modPath)[0]
-    filepath = os.path.join(corepath, 'PeregrinDB.py')
-    mod_name,file_ext = os.path.splitext(os.path.split(filepath)[-1])
+    corepath = Path(__file__).parent.parent
+    filepath = corepath / 'db' / 'PeregrinDB.py'
+    mod_name = filepath.stem
 
-    py_mod = imp.load_source(mod_name, filepath)
+    spec = importlib.util.spec_from_file_location(mod_name, str(filepath))
+    py_mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(py_mod)
     classmembers = inspect.getmembers(py_mod, inspect.isclass)
     for cls in classmembers:
         my_class = getattr(py_mod, cls[0])
@@ -402,10 +404,11 @@ def main():
             break
 
     # configuration details
-    cfg_path = os.path.join(corepath, 'PeregrinDaemon.cfg')
-    config = ConfigParser.RawConfigParser()
-    config.readfp(open(cfg_path))
-    print 'Running >> %s' % datetime.datetime.today()
+    cfg_path = corepath / 'config' / 'PeregrinDaemon.cfg'
+    config = configparser.RawConfigParser()
+    with open(str(cfg_path)) as f:
+        config.read_file(f)
+    print('Running >> %s' % datetime.datetime.today())
 
     # database, details in the config file
     db.connect_db(config)
@@ -422,10 +425,10 @@ def main():
 
     obj.start()
 
-    print 'ItemId:\t%s\t[%s]' % (obj._itemId, obj._engineId)
+    print('ItemId:\t%s\t[%s]' % (obj._itemId, obj._engineId))
 
-    print obj.info()
-    print obj.actions()
+    print(obj.info())
+    print(obj.actions())
 
     obj.run()
 
@@ -433,8 +436,8 @@ def main():
     del db
     del config
     
-    print 'Ending >> %s' % datetime.datetime.today()
-    print '================================================'
+    print('Ending >> %s' % datetime.datetime.today())
+    print('================================================')
     
     return 0
 

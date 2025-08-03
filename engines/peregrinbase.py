@@ -192,9 +192,11 @@ def load_module(module_name, module_path, class_name=None):
     """This will load a module from a filepath and then
     will return the named or first class in the
     module."""
-    import imp
+    import importlib.util
 
-    module_obj = imp.load_source(module_name, module_path)
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    module_obj = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module_obj)
     return load_class(module_obj, class_name)
 
 def main(loader_config):
@@ -218,7 +220,8 @@ def main(loader_config):
             loader_config['config']['name'])
 
     config = configparser.RawConfigParser()
-    config.readfp(open(cfg_path))
+    with open(cfg_path) as f:
+        config.read_file(f)
 
     # database, details in the config file
     if hasattr(db_class, 'connect_db') and db_class:

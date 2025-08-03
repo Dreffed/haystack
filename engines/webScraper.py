@@ -4,9 +4,9 @@ Created on Fri Mar 28 10:12:26 2014
 
 @author: david gloyn-cox
 """
-import BeautifulSoup
-import ConfigParser
-import cookielib
+from bs4 import BeautifulSoup
+import configparser
+import http.cookiejar as cookielib
 import datetime
 import mechanize
 import os
@@ -16,7 +16,7 @@ import timeit
 
 class webScraper(object):
     def __init__(self):
-        print 'Init'
+        print('Init')
         super(webScraper, self).__init__()
         self._title = self.__class__.__name__
         self._version = '1.0'
@@ -141,7 +141,7 @@ A web scraper that will do a simple scrape of web elements:
                 interTime = timeit.default_timer()
                 step = ((interTime - startTime) / i)
                 eta = step * (total - i)
-                print 'Processing: %s / %s ETA: %ss at %s' % (i, total, eta, step)
+                print('Processing: %s / %s ETA: %ss at %s' % (i, total, eta, step))
 
                 if self._db != None:
                     self._db.commit_db()
@@ -216,16 +216,16 @@ A web scraper that will do a simple scrape of web elements:
             br.addheaders = _dicProps["headers"]
 
             # The site we will navigate into, handling it's session
-            print '\t%s\t%s' % (fname,uri)
+            print('\t%s\t%s' % (fname,uri))
             br.open(uri)
         except:
-            print "\t\tUnexpected error in %s(-, %s):\t%s" % (fname, uri, sys.exc_info()[0])
+            print("\t\tUnexpected error in %s(-, %s):\t%s" % (fname, uri, sys.exc_info()[0]))
 
         return br
 
 
 def main():
-    import imp
+    import importlib.util
     import inspect
 
     # the following is a hack to allow me to load mods and classes from a filepath
@@ -236,7 +236,9 @@ def main():
     mod_name,file_ext = os.path.splitext(os.path.split(filepath)[-1])
     
     try:
-        py_mod = imp.load_source(mod_name, filepath)
+        spec = importlib.util.spec_from_file_location(mod_name, filepath)
+        py_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(py_mod)
         classmembers = inspect.getmembers(py_mod, inspect.isclass)
         for cls in classmembers:
             my_class = getattr(py_mod, cls[0])
@@ -246,9 +248,10 @@ def main():
     
         # configuration details
         cfg_path = os.path.join(corepath, 'PeregrinDaemon.cfg')
-        config = ConfigParser.RawConfigParser()
-        config.readfp(open(cfg_path))
-        print 'Running >> %s' % datetime.datetime.today()
+        config = configparser.RawConfigParser()
+        with open(cfg_path) as f:
+            config.read_file(f)
+        print('Running >> %s' % datetime.datetime.today())
     
         # database, details in the config file
         db.connect_db(config)
@@ -259,7 +262,7 @@ def main():
     # create the object
     classes = inspect.getmembers(sys.modules[__name__], inspect.isclass)
     for childClass in classes:
-        print childClass[0]
+        print(childClass[0])
 
     # open the first class found...    
     obj = classes[0][1]()
@@ -271,10 +274,10 @@ def main():
 
     obj.start()
 
-    print 'EngineId:\t%s\t[%s]' % (obj._itemId, obj._engineId)
+    print('EngineId:\t%s\t[%s]' % (obj._itemId, obj._engineId))
 
-    print obj.info()
-    print obj.actions()
+    print(obj.info())
+    print(obj.actions())
 
     obj.run()
 
@@ -282,8 +285,8 @@ def main():
     del db
     del config
     
-    print 'Ending >> %s' % datetime.datetime.today()
-    print '================================================'
+    print('Ending >> %s' % datetime.datetime.today())
+    print('================================================')
     
     return 0
 

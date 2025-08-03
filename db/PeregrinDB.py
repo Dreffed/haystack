@@ -828,7 +828,8 @@ def main():
 
     # configuration details
     config = configparser.RawConfigParser()
-    config.readfp(open(cfg_path))
+    with open(cfg_path) as f:
+        config.read_file(f)
     for each_section in config:
         print('Section: {0}'.format(each_section))
         for (each_key, each_val) in config.items(each_section):

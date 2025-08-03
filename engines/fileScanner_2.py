@@ -366,7 +366,7 @@ class fileScanner(object):
 
 
 def main():
-    import imp
+    import importlib.util
     import inspect
     import configparser
 
@@ -376,7 +376,9 @@ def main():
     filepath = os.path.join(corepath, 'db', 'PeregrinDB.py')
     mod_name,file_ext = os.path.splitext(os.path.split(filepath)[-1])
 
-    py_mod = imp.load_source(mod_name, filepath)
+    spec = importlib.util.spec_from_file_location(mod_name, filepath)
+    py_mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(py_mod)
     classmembers = inspect.getmembers(py_mod, inspect.isclass)
     for cls in classmembers:
         my_class = getattr(py_mod, cls[0])
@@ -387,7 +389,8 @@ def main():
     # configuration details
     cfg_path = os.path.join(corepath, 'config', 'PeregrinDaemon.cfg')
     config = configparser.RawConfigParser()
-    config.readfp(open(cfg_path))
+    with open(cfg_path) as f:
+        config.read_file(f)
     print(config)
 
     # database, details in the config file
